@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "walkandplot",
+  "project_id": "44d04374-96bb-40cd-81c1-556aea91ed24"
+}
