@@ -24,6 +24,7 @@ import {
 import { MapCanvas, type CanvasControls } from "@/components/canvas/map-canvas";
 import { TypePicker } from "@/components/capture/type-picker";
 import { PlaceDetailSheet } from "@/components/capture/place-detail-sheet";
+import { CalibrateSheet, type CalibrateStage } from "@/components/capture/calibrate-sheet";
 import { getPlaceType, PATH_SUBTYPES, typeLabel } from "@/lib/config/place-types";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
@@ -37,6 +38,7 @@ import { constrainToAngle, findSnap } from "@/lib/domain/snap";
 import { buildSnapUniverse } from "@/lib/domain/snap-candidates";
 import { dist, type Point } from "@/lib/domain/geometry";
 import { gridStepForZoom } from "@/lib/domain/grid";
+import { dist as distPts } from "@/lib/domain/geometry";
 import type { Feature } from "@/lib/domain/schema";
 import { runSave, useSaveStateStore } from "@/lib/store/save-state";
 import { useHistoryStore, type HistoryEntry } from "@/lib/store/history";
@@ -108,6 +110,10 @@ export function Workspace() {
   const [sheetFeatureId, setSheetFeatureId] = useState<string | null>(null);
   // PRD 15: post-capture chip retags the most recent path.
   const [lastPathId, setLastPathId] = useState<string | null>(null);
+  // PRD 14: Set Real Length flow.
+  const [calibStage, setCalibStage] = useState<CalibrateStage>({ kind: "idle" });
+  const [calibPoints, setCalibPoints] = useState<Point[]>([]);
+  const [calTipDismissed, setCalTipDismissed] = useState(false);
   const controlsRef = useRef<CanvasControls | null>(null);
 
   const sheetFeature = features.find((f) => f.id === sheetFeatureId) ?? null;
@@ -121,6 +127,13 @@ export function Workspace() {
     setDraftSnaps([]);
     setSelectedId(null);
     setRawCursor(null);
+    setCalibStage({ kind: "idle" });
+    setCalibPoints([]);
+    try {
+      setCalTipDismissed(sessionStorage.getItem(`wap-cal-tip:${floorId}`) === "1");
+    } catch {
+      setCalTipDismissed(false);
+    }
   }
 
   useEffect(() => {
@@ -140,6 +153,7 @@ export function Workspace() {
   }, []);
 
   const tracing = tool === "trace-path";
+  const calibrating = calibStage.kind === "trace";
   const placing = tool === "add-place" && placeType !== null;
   const placingPoint = placing && getPlaceType(placeType)?.capture === "point";
   const placingPolygon = placing && getPlaceType(placeType)?.capture === "polygon";
@@ -182,14 +196,14 @@ export function Workspace() {
 
   const computeCursor = useCallback(
     (raw: Point | null): { cursor: Point | null; snap: ReturnType<typeof findSnap> } => {
-      if (!raw || !(tracing || placingPolygon) || draft.length === 0) {
+      if (!raw || !(tracing || placingPolygon || calibrating) || draft.length === 0) {
         return { cursor: raw, snap: null };
       }
       const from = draft[draft.length - 1];
       const result = effectivePoint(raw, { from, angleLock, snapping });
       return { cursor: result.point, snap: result.snap };
     },
-    [draft, tracing, placingPolygon, effectivePoint, angleLock, snapping],
+    [draft, tracing, placingPolygon, calibrating, effectivePoint, angleLock, snapping],
   );
 
   const cursorState = computeCursor(rawCursor);
@@ -199,6 +213,16 @@ export function Workspace() {
   function handleTapWorld(world: Point) {
     setInlineHint(null);
     setLastPathId(null);
+    if (calibrating) {
+      // Two taps define the known length; the sheet reopens with the result.
+      if (calibPoints.length >= 2) return;
+      const next = [...calibPoints, world];
+      setCalibPoints(next);
+      if (next.length === 2) {
+        setCalibStage({ kind: "sheet", tracedUnits: distPts(next[0], next[1]) });
+      }
+      return;
+    }
     if (placing && placingPoint) {
       placePoint(world);
       return;
@@ -242,7 +266,7 @@ export function Workspace() {
   }
 
   function handleCursorMove(world: Point | null) {
-    if (!tracing) {
+    if (!tracing && !calibrating && !placingPolygon) {
       setRawCursor(null);
       return;
     }
@@ -628,8 +652,8 @@ export function Workspace() {
         features={features}
         connections={floorConnections}
         floorScale={floor.scale}
-        captureActive={(tracing || placingPolygon) && !isDesktop}
-        draft={tracing || placingPolygon ? draft : []}
+        captureActive={(tracing || placingPolygon || calibrating) && !isDesktop}
+        draft={tracing || placingPolygon || calibrating ? draft : []}
         cursor={cursorState.cursor}
         snap={cursorState.snap}
         canFinishByTap={canFinish}
@@ -664,12 +688,24 @@ export function Workspace() {
               <SaveIndicator />
             </div>
           </div>
-          <span
-            aria-label={floor.scale?.calibrated ? "Calibrated, meters" : "Not calibrated, units"}
-            className="rounded-full border px-2 py-0.5 text-[11px] font-semibold text-muted-foreground"
+          <button
+            type="button"
+            aria-label={
+              floor.scale?.calibrated
+                ? "Calibrated, meters - tap to recalibrate"
+                : "Not calibrated, units - tap to set real length"
+            }
+            onClick={() => setCalibStage({ kind: "sheet", tracedUnits: null })}
+            className="flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-[11px] font-semibold text-muted-foreground hover:bg-muted"
           >
+            <span
+              aria-hidden
+              className={`size-1.5 rounded-full ${
+                floor.scale?.calibrated ? "bg-emerald-600 dark:bg-emerald-400" : "bg-amber-500"
+              }`}
+            />
             {floor.scale?.calibrated ? "m" : "units"}
-          </span>
+          </button>
           <Button
             variant="ghost"
             size="icon-lg"
@@ -722,8 +758,14 @@ export function Workspace() {
         </Button>
       </div>
 
-      {/* Hint banner / post-capture subtype chip (PRD 15) */}
-      {(tracing || placingPolygon || inlineHint || lastPathId || saveStatus === "error") && (
+      {/* Hint banner / post-capture subtype chip (PRD 15) / calibration (PRD 14) */}
+      {(tracing ||
+        placingPolygon ||
+        calibrating ||
+        inlineHint ||
+        lastPathId ||
+        (!floor.scale?.calibrated && !calTipDismissed && !tracing && !placing && !selected) ||
+        saveStatus === "error") && (
         <div className="pointer-events-none absolute inset-x-3 bottom-[86px] z-20 flex justify-center">
           {saveStatus === "error" || inlineHint ? (
             <div
@@ -733,6 +775,46 @@ export function Workspace() {
               {saveStatus === "error"
                 ? "The last change could not be saved - check the indicator above."
                 : inlineHint}
+            </div>
+          ) : calibrating ? (
+            <div
+              role="status"
+              className="pointer-events-auto rounded-lg bg-foreground/90 px-3 py-2 text-xs font-medium text-background shadow"
+            >
+              {calibPoints.length === 0
+                ? "Tap the start of the known length"
+                : "Tap the end of the known length"}
+            </div>
+          ) : !floor.scale?.calibrated && !calTipDismissed && !tracing && !placing && !selected ? (
+            <div
+              role="status"
+              className="pointer-events-auto flex max-w-full items-center gap-2 rounded-lg bg-amber-500/95 px-3 py-2 text-xs font-medium text-amber-950 shadow"
+            >
+              <span className="min-w-0 flex-1">
+                Tip: use Set Real Length to get real measurements.
+              </span>
+              <button
+                type="button"
+                onClick={() => setCalibStage({ kind: "sheet", tracedUnits: null })}
+                className="h-8 shrink-0 rounded-md bg-amber-950/15 px-2.5 text-xs font-bold hover:bg-amber-950/25"
+              >
+                Set length
+              </button>
+              <button
+                type="button"
+                aria-label="Dismiss calibration tip"
+                onClick={() => {
+                  setCalTipDismissed(true);
+                  try {
+                    sessionStorage.setItem(`wap-cal-tip:${floorId}`, "1");
+                  } catch {
+                    // Session-only hint; dropping it is fine.
+                  }
+                }}
+                className="grid size-8 shrink-0 place-items-center rounded-full text-amber-950/80 hover:bg-amber-950/15"
+              >
+                <X className="size-3.5" aria-hidden />
+              </button>
             </div>
           ) : lastPathId ? (
             <div
@@ -978,6 +1060,28 @@ export function Workspace() {
         feature={sheetFeature}
         onOpenChange={(open) => {
           if (!open) setSheetFeatureId(null);
+        }}
+      />
+
+      <CalibrateSheet
+        open={calibStage.kind === "sheet"}
+        floor={floor}
+        features={features}
+        tracedUnits={calibStage.kind === "sheet" ? calibStage.tracedUnits : null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCalibStage({ kind: "idle" });
+            setCalibPoints([]);
+          }
+        }}
+        onStartTrace={() => {
+          setCalibPoints([]);
+          setCalibStage({ kind: "trace" });
+        }}
+        onApplied={() => {
+          setCalibStage({ kind: "idle" });
+          setCalibPoints([]);
+          controlsRef.current?.fit();
         }}
       />
 

@@ -158,3 +158,30 @@ test("stairs forward-declare a new floor via the connector sheet (PRD 18)", asyn
   await page.getByRole("button", { name: "Back to project" }).click();
   await expect(page.getByText("2 floors")).toBeVisible();
 });
+
+test("Set Real Length calibrates the floor (PRD 14, AC-03)", async ({ page }) => {
+  await createProjectToWorkspace(page);
+  const canvas = page.locator(CANVAS);
+
+  // Plot a corridor, then calibrate against it.
+  await page.getByRole("button", { name: "Trace Path" }).click();
+  await canvas.click({ position: { x: 150, y: 350 } });
+  await canvas.click({ position: { x: 246, y: 350 } });
+  await page.getByRole("button", { name: "Done" }).click();
+
+  // The uncalibrated chip opens Set Real Length.
+  await page.getByRole("button", { name: /Not calibrated/ }).click();
+  await expect(page.getByText("Set Real Length")).toBeVisible();
+
+  // Pick the existing line (2-unit-long after grid snapping).
+  await page.getByRole("button", { name: /Untitled line/ }).click();
+  await page.getByLabel("Its real length (meters)").fill("10");
+  await page.getByRole("button", { name: "Apply to Floor" }).click();
+
+  // The chip flips to calibrated meters (AC-03).
+  await expect(page.getByRole("button", { name: /Calibrated, meters/ })).toBeVisible();
+
+  // The overview row reports the calibrated floor.
+  await page.getByRole("button", { name: "Back to project" }).click();
+  await expect(page.getByRole("link", { name: /Ground/ })).toContainText("calibrated");
+});
