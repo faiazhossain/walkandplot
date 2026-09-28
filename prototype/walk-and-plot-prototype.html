@@ -1,0 +1,5297 @@
+<title>Walk &amp; Plot Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+/>
+<style>
+  /* ============ page chrome tokens (theme aware) ============ */
+  :root {
+    color-scheme: light;
+    --pg-bg: #edede8;
+    --pg-surface: #ffffff;
+    --pg-ink: #17181c;
+    --pg-ink2: #575c66;
+    --pg-line: #deddd5;
+    --pg-accent: #4f46e5;
+    --pg-shadow: 0 24px 60px -18px rgba(23, 24, 28, 0.3);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --pg-bg: #0f1013;
+      --pg-surface: #181a1f;
+      --pg-ink: #ecedf1;
+      --pg-ink2: #9aa0ac;
+      --pg-line: #262932;
+      --pg-accent: #8b93f8;
+      --pg-shadow: 0 24px 60px -18px rgba(0, 0, 0, 0.7);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --pg-bg: #0f1013;
+    --pg-surface: #181a1f;
+    --pg-ink: #ecedf1;
+    --pg-ink2: #9aa0ac;
+    --pg-line: #262932;
+    --pg-accent: #8b93f8;
+    --pg-shadow: 0 24px 60px -18px rgba(0, 0, 0, 0.7);
+  }
+
+  /* ============ app tokens (fixed: the product is clean & light) ============ */
+  :root {
+    --a-bg: #f6f6f3;
+    --a-card: #ffffff;
+    --a-ink: #191b23;
+    --a-ink2: #5d616d;
+    --a-ink3: #9a9eaa;
+    --a-line: #e7e7ec;
+    --a-accent: #4f46e5;
+    --a-accent-deep: #3e36c7;
+    --a-accent-soft: #edecfc;
+    --a-good: #15803d;
+    --a-good-bg: #dcf3e3;
+    --a-warn: #b45309;
+    --a-warn-bg: #fcf0d9;
+    --a-bad: #b91c1c;
+    --a-bad-bg: #fce5e5;
+    --hue-teal-fg: #0f766e;
+    --hue-teal-bg: #d8f1ed;
+    --hue-indigo-fg: #4338ca;
+    --hue-indigo-bg: #e5e4fb;
+    --hue-rose-fg: #be123c;
+    --hue-rose-bg: #fbe2e8;
+    --hue-violet-fg: #6d28d9;
+    --hue-violet-bg: #ece4fb;
+    --hue-orange-fg: #c2410c;
+    --hue-orange-bg: #fce9dc;
+    --hue-green-fg: #15803d;
+    --hue-green-bg: #dcf3e3;
+    --hue-cyan-fg: #0e7490;
+    --hue-cyan-bg: #d9f0f6;
+    --hue-amber-fg: #b45309;
+    --hue-amber-bg: #fcf0d9;
+    --hue-slate-fg: #475569;
+    --hue-slate-bg: #e8ebf0;
+    --hue-sky-fg: #0369a1;
+    --hue-sky-bg: #dbedf8;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    margin: 0;
+    background: var(--pg-bg);
+    color: var(--pg-ink);
+    font-family:
+      "Instrument Sans",
+      system-ui,
+      -apple-system,
+      "Segoe UI",
+      sans-serif;
+    font-size: 14px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+  }
+  button {
+    font-family: inherit;
+  }
+  :focus-visible {
+    outline: 2px solid var(--pg-accent);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      animation: none !important;
+      transition: none !important;
+    }
+  }
+
+  .wrap {
+    max-width: 1220px;
+    margin: 0 auto;
+    padding: 22px 20px 44px;
+  }
+
+  /* ---------- masthead ---------- */
+  .masthead {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 10px 20px;
+    margin: 2px 0 12px;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .brandmark {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: var(--a-accent);
+    display: grid;
+    place-items: center;
+    color: #fff;
+    flex: none;
+    box-shadow: 0 6px 16px -6px rgba(79, 70, 229, 0.55);
+  }
+  h1 {
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-size: 23px;
+    margin: 0;
+    letter-spacing: -0.01em;
+    font-weight: 700;
+  }
+  .mast-sub {
+    color: var(--pg-ink2);
+    font-size: 13.5px;
+    margin-top: 1px;
+  }
+  .mast-meta {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .mmeta {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--pg-ink2);
+    border: 1px solid var(--pg-line);
+    background: var(--pg-surface);
+    border-radius: 99px;
+    padding: 4px 11px;
+  }
+
+  /* ---------- jump chips ---------- */
+  .chips {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    background: linear-gradient(var(--pg-bg) 82%, transparent);
+    padding: 8px 0 10px;
+    margin: 0 -2px;
+  }
+  .chips-scroll {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding: 3px 2px 6px;
+    scrollbar-width: none;
+  }
+  .chips-scroll::-webkit-scrollbar {
+    display: none;
+  }
+  .jchip {
+    flex: none;
+    border: 1px solid var(--pg-line);
+    background: var(--pg-surface);
+    color: var(--pg-ink2);
+    font-size: 12.5px;
+    font-weight: 600;
+    border-radius: 99px;
+    padding: 6px 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .jchip:hover {
+    color: var(--pg-ink);
+    border-color: var(--pg-ink2);
+  }
+  .jchip.on {
+    background: var(--pg-ink);
+    border-color: var(--pg-ink);
+    color: var(--pg-bg);
+  }
+
+  /* ---------- layout ---------- */
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 332px;
+    gap: 22px;
+    align-items: start;
+  }
+  @media (max-width: 1040px) {
+    .layout {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* ---------- build notes card ---------- */
+  .notes {
+    position: sticky;
+    top: 64px;
+    background: var(--pg-surface);
+    border: 1px solid var(--pg-line);
+    border-radius: 18px;
+    padding: 18px 18px 14px;
+  }
+  .notes .eyebrow {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--pg-accent);
+    margin-bottom: 6px;
+  }
+  .notes h3 {
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-size: 17px;
+    margin: 0 0 10px;
+    font-weight: 700;
+  }
+  .notes ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+  }
+  .notes li {
+    position: relative;
+    padding-left: 16px;
+    color: var(--pg-ink2);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .notes li::before {
+    content: "";
+    position: absolute;
+    left: 2px;
+    top: 8px;
+    width: 6px;
+    height: 6px;
+    border-radius: 2px;
+    background: var(--pg-accent);
+    opacity: 0.75;
+  }
+  .notes li b {
+    color: var(--pg-ink);
+    font-weight: 600;
+  }
+  .foot {
+    margin-top: 26px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 8px;
+    color: var(--pg-ink2);
+    font-size: 12.5px;
+  }
+  .linkbtn {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--pg-accent);
+    font-weight: 600;
+    font-size: 12.5px;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  /* ---------- phone ---------- */
+  .stage {
+    min-width: 0;
+  }
+  .phone {
+    width: min(394px, 100%);
+    margin: 0 auto;
+    background: #0c0d12;
+    border-radius: 54px;
+    padding: 11px;
+    box-shadow: var(--pg-shadow);
+  }
+  .pscreen {
+    position: relative;
+    background: var(--a-bg);
+    border-radius: 44px;
+    overflow: hidden;
+    height: clamp(620px, 82vh, 806px);
+    display: flex;
+    flex-direction: column;
+    color: var(--a-ink);
+  }
+  .island {
+    position: absolute;
+    top: 11px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 112px;
+    height: 27px;
+    background: #0c0d12;
+    border-radius: 20px;
+    z-index: 70;
+    pointer-events: none;
+  }
+  .homebar {
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 120px;
+    height: 5px;
+    border-radius: 3px;
+    background: rgba(25, 27, 35, 0.85);
+    z-index: 70;
+    pointer-events: none;
+  }
+  .scr {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .scr-body {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+    padding: 6px 18px 16px;
+    scrollbar-width: none;
+  }
+  .scr-body::-webkit-scrollbar {
+    display: none;
+  }
+  .scr-foot {
+    padding: 10px 18px calc(20px + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: linear-gradient(transparent, var(--a-bg) 30%);
+  }
+
+  .dotgrid {
+    background-image: radial-gradient(rgba(25, 27, 35, 0.1) 1.1px, transparent 1.1px);
+    background-size: 18px 18px;
+  }
+
+  /* ---------- status bar ---------- */
+  .sbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 28px 4px;
+    font-size: 13.5px;
+    font-weight: 600;
+    flex: none;
+  }
+  .sbar .sicons {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  /* ---------- app top bar ---------- */
+  .appbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px 10px;
+    flex: none;
+  }
+  .appbar .grow {
+    flex: 1;
+    min-width: 0;
+  }
+  .appbar h2 {
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-size: 19px;
+    margin: 0;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .appbar .sub {
+    font-size: 12px;
+    color: var(--a-ink3);
+    margin-top: -1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* ---------- primitives ---------- */
+  .btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 48px;
+    border-radius: 14px;
+    border: 1px solid var(--a-line);
+    background: var(--a-card);
+    font:
+      600 15px "Instrument Sans",
+      sans-serif;
+    color: var(--a-ink);
+    cursor: pointer;
+    padding: 0 16px;
+    transition: transform 0.1s;
+  }
+  .btn:active {
+    transform: scale(0.98);
+  }
+  .btn.primary {
+    background: var(--a-accent);
+    border-color: var(--a-accent);
+    color: #fff;
+  }
+  .btn.primary:disabled {
+    opacity: 0.4;
+    cursor: default;
+    transform: none;
+  }
+  .btn.danger {
+    background: var(--a-bad-bg);
+    border-color: transparent;
+    color: var(--a-bad);
+  }
+  .btn.small {
+    min-height: 38px;
+    width: auto;
+    padding: 0 14px;
+    border-radius: 11px;
+    font-size: 13.5px;
+  }
+  .iconbtn {
+    width: 42px;
+    height: 42px;
+    border-radius: 13px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--a-line);
+    background: var(--a-card);
+    color: var(--a-ink);
+    cursor: pointer;
+    flex: none;
+    padding: 0;
+  }
+  .iconbtn.circle {
+    border-radius: 50%;
+    box-shadow: 0 3px 12px rgba(23, 24, 28, 0.14);
+  }
+  .iconbtn.danger {
+    color: var(--a-bad);
+  }
+  .avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--a-accent-soft);
+    color: var(--a-accent-deep);
+    display: grid;
+    place-items: center;
+    font-weight: 700;
+    font-size: 14px;
+    flex: none;
+  }
+  .sect {
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--a-ink3);
+    margin: 18px 0 8px;
+  }
+  .tiny {
+    font-size: 12px;
+    color: var(--a-ink3);
+    text-align: center;
+    margin: 2px 0 0;
+    line-height: 1.5;
+  }
+
+  .tchip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    border-radius: 99px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .h-teal {
+    background: var(--hue-teal-bg);
+    color: var(--hue-teal-fg);
+  }
+  .h-indigo {
+    background: var(--hue-indigo-bg);
+    color: var(--hue-indigo-fg);
+  }
+  .h-rose {
+    background: var(--hue-rose-bg);
+    color: var(--hue-rose-fg);
+  }
+  .h-violet {
+    background: var(--hue-violet-bg);
+    color: var(--hue-violet-fg);
+  }
+  .h-orange {
+    background: var(--hue-orange-bg);
+    color: var(--hue-orange-fg);
+  }
+  .h-green {
+    background: var(--hue-green-bg);
+    color: var(--hue-green-fg);
+  }
+  .h-cyan {
+    background: var(--hue-cyan-bg);
+    color: var(--hue-cyan-fg);
+  }
+  .h-amber {
+    background: var(--hue-amber-bg);
+    color: var(--hue-amber-fg);
+  }
+  .h-slate {
+    background: var(--hue-slate-bg);
+    color: var(--hue-slate-fg);
+  }
+  .h-sky {
+    background: var(--hue-sky-bg);
+    color: var(--hue-sky-fg);
+  }
+
+  /* ---------- v2 components ---------- */
+  .savedot {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--a-good);
+    flex: none;
+  }
+  .savedot i {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--a-good);
+    display: inline-block;
+  }
+  .untchip {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 99px;
+    background: var(--hue-slate-bg);
+    color: var(--hue-slate-fg);
+    flex: none;
+  }
+  .toolrow {
+    display: flex;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+  }
+  .tool {
+    flex: 1;
+    min-height: 52px;
+    border-radius: 15px;
+    border: 1.5px solid var(--a-line);
+    background: var(--a-card);
+    font:
+      600 14px "Instrument Sans",
+      sans-serif;
+    color: var(--a-ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    cursor: pointer;
+    padding: 0 8px;
+  }
+  .tool.active {
+    border-color: var(--a-accent);
+    background: var(--a-accent-soft);
+    color: var(--a-accent-deep);
+  }
+  .raggle {
+    min-height: 52px;
+    width: 56px;
+    border-radius: 15px;
+    border: 1.5px solid var(--a-line);
+    background: var(--a-card);
+    font:
+      700 12.5px "JetBrains Mono",
+      monospace;
+    color: var(--a-ink2);
+    cursor: pointer;
+    flex: none;
+  }
+  .raggle.on {
+    border-color: var(--a-accent);
+    background: var(--a-accent-soft);
+    color: var(--a-accent-deep);
+  }
+  .banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--a-warn-bg);
+    border-radius: 14px;
+    padding: 11px 12px;
+    margin: 10px 0 2px;
+  }
+  .banner .bt {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--a-warn);
+    line-height: 1.4;
+  }
+  .banner .grow {
+    flex: 1;
+    min-width: 0;
+  }
+  #toast .tact {
+    background: none;
+    border: none;
+    color: #a5b4fc;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+    margin-left: 10px;
+    padding: 0;
+    font-family: inherit;
+  }
+  .klist {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .krow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border: 1.5px solid var(--a-line);
+    border-radius: 13px;
+    padding: 11px 12px;
+    cursor: pointer;
+    background: var(--a-card);
+    font:
+      600 14px "Instrument Sans",
+      sans-serif;
+    color: var(--a-ink);
+    text-align: left;
+    width: 100%;
+  }
+  .krow.on {
+    border-color: var(--a-accent);
+    background: var(--a-accent-soft);
+  }
+  .krow .km {
+    margin-left: auto;
+    color: var(--a-ink3);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .stepper {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .stepper .cnt {
+    font:
+      700 15px "JetBrains Mono",
+      monospace;
+    min-width: 26px;
+    text-align: center;
+  }
+  .txt3d {
+    font:
+      800 11px "Instrument Sans",
+      sans-serif;
+    letter-spacing: 0.02em;
+  }
+  #v3d {
+    touch-action: none;
+    cursor: grab;
+  }
+  .schip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    border-radius: 99px;
+    font-size: 11.5px;
+    font-weight: 700;
+  }
+  .schip.done {
+    background: var(--a-good-bg);
+    color: var(--a-good);
+  }
+  .schip.live {
+    background: var(--a-accent-soft);
+    color: var(--a-accent-deep);
+  }
+  .schip.draft {
+    background: var(--hue-slate-bg);
+    color: var(--hue-slate-fg);
+  }
+
+  .field {
+    width: 100%;
+    min-height: 46px;
+    border: 1.5px solid var(--a-line);
+    border-radius: 12px;
+    padding: 10px 12px;
+    font:
+      500 15px "Instrument Sans",
+      sans-serif;
+    background: var(--a-card);
+    color: var(--a-ink);
+  }
+  .field:focus {
+    border-color: var(--a-accent);
+    outline: none;
+    box-shadow: 0 0 0 3px var(--a-accent-soft);
+  }
+  .field::placeholder {
+    color: var(--a-ink3);
+  }
+  .flabel {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--a-ink2);
+    margin: 12px 0 6px;
+    display: block;
+  }
+
+  .choice {
+    padding: 9px 13px;
+    border-radius: 11px;
+    border: 1.5px solid var(--a-line);
+    background: var(--a-card);
+    font:
+      600 13.5px "Instrument Sans",
+      sans-serif;
+    color: var(--a-ink);
+    cursor: pointer;
+  }
+  .choice.on {
+    border-color: var(--a-accent);
+    background: var(--a-accent-soft);
+    color: var(--a-accent-deep);
+  }
+  .chiprow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .opt {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    width: 100%;
+    text-align: left;
+    border: 1.5px solid var(--a-line);
+    border-radius: 14px;
+    padding: 12px 13px;
+    cursor: pointer;
+    background: var(--a-card);
+  }
+  .opt .ot {
+    font-weight: 700;
+    font-size: 14.5px;
+  }
+  .opt .od {
+    font-size: 12.5px;
+    color: var(--a-ink2);
+    margin-top: 1px;
+  }
+  .opt.on {
+    border-color: var(--a-accent);
+    background: var(--a-accent-soft);
+  }
+  .opt .oico {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+    flex: none;
+  }
+
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 13px;
+    border: 1px solid var(--a-line);
+    border-radius: 16px;
+    background: var(--a-card);
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+    color: var(--a-ink);
+  }
+  .row + .row {
+    margin-top: 8px;
+  }
+  .row .rt {
+    font-weight: 700;
+    font-size: 14.5px;
+  }
+  .row .rm {
+    font-size: 12.5px;
+    color: var(--a-ink3);
+    margin-top: 1px;
+  }
+  .row .thumb {
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+    border: 1px solid var(--a-line);
+    flex: none;
+    overflow: hidden;
+    background: #fdfdfb;
+  }
+  .row .grow {
+    flex: 1;
+    min-width: 0;
+  }
+  .row .chev {
+    color: var(--a-ink3);
+    flex: none;
+  }
+
+  /* ---------- sheets ---------- */
+  .sheet-wrap {
+    position: absolute;
+    inset: 0;
+    z-index: 55;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+  .backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 16, 20, 0.45);
+    border: none;
+    padding: 0;
+    cursor: default;
+    animation: fadein 0.18s;
+  }
+  .sheet {
+    position: relative;
+    background: var(--a-card);
+    border-radius: 24px 24px 0 0;
+    padding: 6px 18px 24px;
+    max-height: 84%;
+    overflow-y: auto;
+    animation: sheetup 0.24s cubic-bezier(0.2, 0.9, 0.3, 1);
+    scrollbar-width: none;
+  }
+  .sheet::-webkit-scrollbar {
+    display: none;
+  }
+  .grab {
+    width: 40px;
+    height: 4.5px;
+    border-radius: 3px;
+    background: var(--a-line);
+    margin: 4px auto 12px;
+  }
+  .shead {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .shead .tico {
+    width: 42px;
+    height: 42px;
+    border-radius: 13px;
+    display: grid;
+    place-items: center;
+    flex: none;
+  }
+  .shead h3 {
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-size: 18px;
+    margin: 0;
+    font-weight: 700;
+  }
+  .shead .sub {
+    font-size: 12.5px;
+    color: var(--a-ink3);
+  }
+  .shead .grow {
+    flex: 1;
+    min-width: 0;
+  }
+  @keyframes sheetup {
+    from {
+      transform: translateY(60%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+  @keyframes fadein {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  .tilegrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 7px;
+    padding: 13px 4px 11px;
+    border-radius: 15px;
+    border: 1.5px solid var(--a-line);
+    background: var(--a-card);
+    cursor: pointer;
+    min-height: 82px;
+    justify-content: center;
+    font:
+      600 12.5px "Instrument Sans",
+      sans-serif;
+    color: var(--a-ink);
+  }
+  .tile:active {
+    transform: scale(0.97);
+  }
+  .tile .tico {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+  }
+  .warn {
+    display: flex;
+    gap: 10px;
+    background: var(--a-warn-bg);
+    border-radius: 14px;
+    padding: 12px 13px;
+    font-size: 13px;
+    color: var(--a-warn);
+    margin: 4px 0 2px;
+  }
+  .warn b {
+    font-weight: 700;
+  }
+  .note {
+    display: flex;
+    gap: 10px;
+    background: var(--a-accent-soft);
+    border-radius: 14px;
+    padding: 12px 13px;
+    font-size: 13px;
+    color: var(--a-accent-deep);
+    margin: 4px 0 2px;
+  }
+
+  .statgrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin: 10px 0 4px;
+  }
+  .stat {
+    background: var(--a-bg);
+    border-radius: 13px;
+    padding: 11px 8px;
+    text-align: center;
+  }
+  .stat b {
+    display: block;
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+  }
+  .stat span {
+    font-size: 11.5px;
+    color: var(--a-ink3);
+    font-weight: 600;
+  }
+
+  /* ---------- map ---------- */
+  .mapwrap {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    background: #fbfbf9;
+    border-top: 1px solid var(--a-line);
+    border-bottom: 1px solid var(--a-line);
+  }
+  #mapsvg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    display: block;
+    cursor: grab;
+  }
+  #mapsvg.plotting {
+    cursor: crosshair;
+  }
+  .readout {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(25, 27, 35, 0.88);
+    color: #fff;
+    border-radius: 99px;
+    padding: 7px 14px;
+    font-size: 12.5px;
+    font-weight: 600;
+    white-space: nowrap;
+    pointer-events: none;
+    max-width: 92%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .maptools {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .maphint {
+    position: absolute;
+    left: 12px;
+    right: 52px;
+    top: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--a-ink2);
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid var(--a-line);
+    border-radius: 10px;
+    padding: 6px 10px;
+    pointer-events: none;
+  }
+  .mapbar {
+    flex: none;
+    padding: 10px 14px calc(18px + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    background: var(--a-bg);
+  }
+  .mapbar .btn.add {
+    flex: 1;
+    min-height: 52px;
+    border-radius: 16px;
+    font-size: 16px;
+  }
+  .selinfo {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .selinfo .sn {
+    font-weight: 700;
+    font-size: 14.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .selinfo .sd {
+    font-size: 11.5px;
+    color: var(--a-ink3);
+  }
+
+  /* ---------- toasts ---------- */
+  #toast {
+    position: absolute;
+    left: 50%;
+    bottom: 104px;
+    transform: translateX(-50%) translateY(6px);
+    background: #22242c;
+    color: #fff;
+    border-radius: 12px;
+    padding: 10px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.22s;
+    z-index: 80;
+    white-space: nowrap;
+    max-width: 88%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* ---------- sign in ---------- */
+  .signin {
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 0 30px;
+    gap: 0;
+  }
+  .logo-lg {
+    width: 76px;
+    height: 76px;
+    border-radius: 24px;
+    background: var(--a-accent);
+    display: grid;
+    place-items: center;
+    color: #fff;
+    margin: 0 auto 18px;
+    box-shadow: 0 14px 30px -10px rgba(79, 70, 229, 0.5);
+  }
+  .brandname {
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .tagline {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--a-accent-deep);
+    margin: 4px 0 14px;
+  }
+  .pitch {
+    font-size: 14.5px;
+    color: var(--a-ink2);
+    max-width: 270px;
+    margin: 0 auto 34px;
+    line-height: 1.55;
+  }
+  .gbtn {
+    gap: 10px;
+    font-weight: 600;
+  }
+
+  /* ---------- dashboard ---------- */
+  .hello h2 {
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-size: 24px;
+    margin: 8px 0 3px;
+    letter-spacing: -0.01em;
+  }
+  .hello p {
+    margin: 0 0 14px;
+    color: var(--a-ink2);
+    font-size: 13.5px;
+  }
+  .install {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--a-accent-soft);
+    border-radius: 15px;
+    padding: 11px 12px;
+    margin-top: 10px;
+  }
+  .install .it {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--a-accent-deep);
+  }
+  .install .is {
+    font-size: 11.5px;
+    color: var(--a-accent-deep);
+    opacity: 0.75;
+    margin-top: 1px;
+  }
+  .install .grow {
+    flex: 1;
+    min-width: 0;
+  }
+  .pmeta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    color: var(--a-ink2);
+    font-size: 13px;
+    margin-bottom: 4px;
+  }
+
+  /* ---------- ready / done ---------- */
+  .readycard {
+    margin-top: 10px;
+    border: 1px solid var(--a-line);
+    border-radius: 20px;
+    background: var(--a-card);
+    padding: 22px 20px;
+    text-align: center;
+  }
+  .readycard .rico {
+    width: 64px;
+    height: 64px;
+    border-radius: 20px;
+    background: var(--a-accent-soft);
+    color: var(--a-accent);
+    display: grid;
+    place-items: center;
+    margin: 0 auto 14px;
+  }
+  .readycard h2 {
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-size: 21px;
+    margin: 0 0 8px;
+    letter-spacing: -0.01em;
+  }
+  .readycard p {
+    color: var(--a-ink2);
+    font-size: 14px;
+    line-height: 1.55;
+    margin: 0 0 16px;
+  }
+  .rlist {
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+  }
+  .rli {
+    display: flex;
+    gap: 11px;
+    align-items: flex-start;
+    font-size: 13.5px;
+    color: var(--a-ink2);
+  }
+  .rli .rico2 {
+    width: 30px;
+    height: 30px;
+    border-radius: 10px;
+    background: var(--a-bg);
+    color: var(--a-ink2);
+    display: grid;
+    place-items: center;
+    flex: none;
+  }
+  .donebig {
+    width: 84px;
+    height: 84px;
+    border-radius: 50%;
+    background: var(--a-good-bg);
+    color: var(--a-good);
+    display: grid;
+    place-items: center;
+    margin: 26px auto 16px;
+  }
+  .donecenter {
+    text-align: center;
+    padding-top: 4px;
+  }
+  .donecenter h2 {
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-size: 23px;
+    margin: 0 0 6px;
+  }
+  .donecenter p {
+    color: var(--a-ink2);
+    margin: 0 0 18px;
+    font-size: 14px;
+  }
+  .donechips {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+  }
+
+  /* ---------- desktop ---------- */
+  .desktop {
+    max-width: 1020px;
+    margin: 0 auto;
+    background: var(--pg-surface);
+    border: 1px solid var(--pg-line);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: var(--pg-shadow);
+  }
+  .dbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--pg-line);
+  }
+  .ddots {
+    display: flex;
+    gap: 5px;
+  }
+  .ddots i {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--pg-line);
+  }
+  .durl {
+    flex: 1;
+    background: var(--pg-bg);
+    border-radius: 8px;
+    padding: 5px 12px;
+    font:
+      500 12px "JetBrains Mono",
+      monospace;
+    color: var(--pg-ink2);
+    text-align: center;
+  }
+  .dbody {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    min-height: 430px;
+  }
+  @media (max-width: 760px) {
+    .dbody {
+      grid-template-columns: 1fr;
+    }
+    .dside {
+      display: none;
+    }
+  }
+  .dside {
+    border-right: 1px solid var(--pg-line);
+    padding: 16px 12px;
+    background: var(--pg-bg);
+  }
+  .dbrand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+    margin-bottom: 16px;
+    color: var(--pg-ink);
+  }
+  .dbrand .bm {
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    background: var(--a-accent);
+    display: grid;
+    place-items: center;
+    color: #fff;
+  }
+  .dsect {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--pg-ink2);
+    margin: 0 0 8px;
+    padding: 0 6px;
+  }
+  .dproj {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    border-radius: 9px;
+    padding: 8px 9px;
+    cursor: pointer;
+    color: var(--pg-ink2);
+    font:
+      500 13px "Instrument Sans",
+      sans-serif;
+  }
+  .dproj.on {
+    background: var(--pg-surface);
+    color: var(--pg-ink);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+    font-weight: 700;
+  }
+  .dmain {
+    padding: 18px 22px;
+  }
+  .dbanner {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    background: var(--a-accent-soft);
+    border-radius: 12px;
+    padding: 13px 15px;
+    margin-bottom: 18px;
+  }
+  .dbanner b {
+    display: block;
+    color: var(--a-accent-deep);
+    font-size: 13.5px;
+  }
+  .dbanner span {
+    font-size: 12.5px;
+    color: var(--a-accent-deep);
+    opacity: 0.75;
+  }
+  .dhead {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .dhead h2 {
+    font-family: "Bricolage Grotesque", sans-serif;
+    margin: 0;
+    font-size: 20px;
+  }
+  .dhead .dm {
+    color: var(--pg-ink2);
+    font-size: 13px;
+    flex: 1;
+  }
+  .dcols {
+    display: grid;
+    grid-template-columns: minmax(200px, 240px) 1fr;
+    gap: 18px;
+    align-items: start;
+  }
+  @media (max-width: 680px) {
+    .dcols {
+      grid-template-columns: 1fr;
+    }
+  }
+  .dfloor {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    align-items: center;
+    padding: 9px 11px;
+    border: 1px solid var(--pg-line);
+    border-radius: 10px;
+    margin-bottom: 7px;
+    font-size: 13px;
+  }
+  .dmap {
+    border: 1px solid var(--pg-line);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .dmaptitle {
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--pg-ink2);
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--pg-line);
+  }
+  pre.geopre {
+    margin: 10px 0 0;
+    background: var(--pg-bg);
+    border: 1px solid var(--pg-line);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font:
+      400 11px/1.6 "JetBrains Mono",
+      monospace;
+    color: var(--pg-ink);
+    max-height: 300px;
+    overflow: auto;
+  }
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <div class="brand">
+      <div class="brandmark" data-bm="1"></div>
+      <div>
+        <h1>Walk &amp; Plot</h1>
+        <div class="mast-sub">
+          Interactive prototype &mdash; click through the phone; the notes explain what your team
+          builds.
+        </div>
+      </div>
+    </div>
+    <div class="mast-meta">
+      <span class="mmeta">V1 flow reference</span>
+      <span class="mmeta">tap-to-plot</span>
+      <span class="mmeta">offline-first</span>
+    </div>
+  </header>
+
+  <nav class="chips"><div class="chips-scroll" id="navChips"></div></nav>
+
+  <div class="layout">
+    <section class="stage" id="stage"></section>
+    <aside class="notes" id="notes"></aside>
+  </div>
+
+  <footer class="foot">
+    <span
+      >Prototype only &mdash; data resets on reload.
+      <button class="linkbtn" data-a="reset-demo">Reset demo data</button></span
+    >
+    <span>Walk &amp; Plot &mdash; Walk. Map. Export.</span>
+  </footer>
+</div>
+
+<script>
+  "use strict";
+  /* ================= utilities ================= */
+  const $ = (s) => document.querySelector(s);
+  const esc = (s) =>
+    String(s == null ? "" : s).replace(
+      /[&<>"']/g,
+      (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
+    );
+  const uid = () => "f" + Math.random().toString(36).slice(2, 8);
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const r2 = (v) => Math.round(v * 100) / 100;
+  const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  const pathLen = (vs) => vs.reduce((s, p, i) => (i ? s + dist(vs[i - 1], p) : 0), 0);
+  const centroid = (vs) => {
+    let x = 0,
+      y = 0;
+    vs.forEach((v) => {
+      x += v.x;
+      y += v.y;
+    });
+    return { x: x / vs.length, y: y / vs.length };
+  };
+  function ptSegDist(p, a, b) {
+    const dx = b.x - a.x,
+      dy = b.y - a.y;
+    const l2 = dx * dx + dy * dy;
+    if (!l2) return dist(p, a);
+    let t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2;
+    t = clamp(t, 0, 1);
+    return dist(p, { x: a.x + t * dx, y: a.y + t * dy });
+  }
+  function PIP(x, y, vs) {
+    // point in polygon, ray cast
+    let inside = false;
+    for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+      const xi = vs[i].x,
+        yi = vs[i].y,
+        xj = vs[j].x,
+        yj = vs[j].y;
+      if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside;
+  }
+
+  /* ================= icons (24px stroke set) ================= */
+  const I = {
+    logo: '<circle cx="6" cy="18" r="2.7"/><circle cx="18" cy="6" r="2.7"/><path d="M8.7 17.2C14 15.6 15.9 13 15.3 8.8" stroke-dasharray="3 3.2"/>',
+    plus: '<path d="M12 5.5v13M5.5 12h13"/>',
+    undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h9.5a6 6 0 0 1 0 12H10"/>',
+    pause: '<path d="M9 5.5v13M15 5.5v13"/>',
+    flag: '<path d="M5.5 21V4.5"/><path d="M5.5 5h11.5l-2.6 3.8 2.6 3.7H5.5"/>',
+    back: '<path d="M15 5l-7 7 7 7"/>',
+    chev: '<path d="M9.5 5.5l6.5 6.5-6.5 6.5"/>',
+    close: '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>',
+    download: '<path d="M12 4v11M7.5 11.5 12 16l4.5-4.5"/><path d="M5 19.5h14"/>',
+    camera: '<path d="M4.5 8.5h3L9.5 6h5l2 2.5h3V19h-15z"/><circle cx="12" cy="13.2" r="3.1"/>',
+    trash: '<path d="M4.5 7h15M9.5 7V4.5h5V7M6.8 7l1 13h8.4l1-13M10 11v5.5M14 11v5.5"/>',
+    check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+    fit: '<circle cx="12" cy="12" r="3.4"/><path d="M12 3.2v2.6M12 18.2v2.6M3.2 12h2.6M18.2 12h2.6"/>',
+    zin: '<circle cx="11" cy="11" r="6.5"/><path d="M20.5 20.5 16 16M11 8.5v5M8.5 11h5"/>',
+    zout: '<circle cx="11" cy="11" r="6.5"/><path d="M20.5 20.5 16 16M8.5 11h5"/>',
+    pencil: '<path d="M4.5 19.5l1-4L16.5 4.5a2.12 2.12 0 0 1 3 3L8.5 18.5l-4 1z"/>',
+    copy: '<rect x="9" y="9" width="11" height="11" rx="2.2"/><path d="M15.5 5.5H7.2A2.2 2.2 0 0 0 5 7.7V16"/>',
+    alert: '<path d="M12 4.5 21 19.5H3z"/><path d="M12 10.2v4M12 17.1h.01"/>',
+    eye: '<path d="M2.8 12S6.2 5.8 12 5.8 21.2 12 21.2 12 17.8 18.2 12 18.2 2.8 12 2.8 12z"/><circle cx="12" cy="12" r="3"/>',
+    pin: '<path d="M12 21s-6.5-5.4-6.5-10a6.5 6.5 0 0 1 13 0C18.5 15.6 12 21 12 21z"/><circle cx="12" cy="10.6" r="2.3"/>',
+    hand: '<path d="M8 12V5.8a1.4 1.4 0 0 1 2.8 0V11m0-5.6v-1a1.4 1.4 0 0 1 2.8 0V11m0-4.6a1.4 1.4 0 0 1 2.8 0V12m0-2a1.4 1.4 0 0 1 2.8 0v4c0 4-2.6 6.5-6.5 6.5-3.4 0-4.6-1.6-6.2-4.4L5 13.4c-.8-1.3.9-2.7 2-1.7L8 12.6"/>',
+    route:
+      '<circle cx="5.5" cy="18.5" r="2.2"/><circle cx="18.5" cy="5.5" r="2.2"/><path d="M7.8 18.2C13.5 17 16 14 15.8 8"/>',
+    openarea: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M4 9.5h16M9.5 4v5.5"/>',
+    shop: '<path d="M4.5 9.5 5.6 5h12.8l1.1 4.5"/><path d="M4.5 9.5c0 1.3 1.1 2.4 2.5 2.4s2.5-1.1 2.5-2.4c0 1.3 1.1 2.4 2.5 2.4s2.5-1.1 2.5-2.4c0 1.3 1.1 2.4 2.5 2.4s2.5-1.1 2.5-2.4"/><path d="M5.8 12.5V19.5h12.4v-7M9.8 19.5v-4.6h4.4v4.6"/>',
+    stair: '<path d="M4 19.5h4.2v-4h4.2v-4h4.2v-4H21"/><path d="M4 19.5h3.8"/>',
+    lift: '<rect x="5" y="4" width="14" height="16" rx="2.2"/><path d="M12 4v16"/><path d="M8.6 11 10.3 9l1.7 2M15.4 13l-1.7 2-1.7-2"/>',
+    escalator:
+      '<path d="M3.5 18.5h3.8c.9 0 1.8-.4 2.4-1l4.6-4.6c.6-.6 1.5-1 2.4-1h3.8"/><circle cx="16.2" cy="6.8" r="1.8"/><path d="M16.2 9.4v3.4M16.2 12.8l-2.4 3M16.2 12.8l2.4 3"/>',
+    door: '<path d="M13.5 4h5.5v16h-5.5"/><path d="M3 12h7.5M7.7 8.8l3.2 3.2-3.2 3.2"/>',
+    toilet:
+      '<circle cx="7.8" cy="5.8" r="1.9"/><path d="M7.8 8.6v5.6M7.8 14.2l-1.9 5M7.8 14.2l1.9 5"/><circle cx="16.2" cy="5.4" r="1.6"/><path d="M16.2 8.2l-2 6h4l-2-6zM16.2 14.2v4.6"/>',
+    junction:
+      '<circle cx="12" cy="12" r="2.1"/><path d="M12 9.9V3.8M12 14.1v6.1M9.9 12H3.8M14.1 12h6.1"/>',
+    other:
+      '<circle cx="12" cy="12" r="8.5"/><path d="M8 12h.01M12 12h.01M16 12h.01" stroke-width="2.6"/>',
+    building:
+      '<rect x="5" y="3.5" width="14" height="17" rx="1.5"/><path d="M9 20.5v-4h6v4"/><path d="M8.5 7.5h2M13.5 7.5h2M8.5 11h2M13.5 11h2"/>',
+    monitor:
+      '<rect x="3" y="4.5" width="18" height="12.5" rx="2"/><path d="M9.5 20.5h5M12 17v3.5"/>',
+    g: '<path fill="#4285F4" d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47a5.57 5.57 0 0 1-2.4 3.58v3h3.86c2.26-2.09 3.56-5.17 3.56-8.82z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96H1.29v3.09A11.99 11.99 0 0 0 12 24z"/><path fill="#FBBC05" d="M5.27 14.29A7.19 7.19 0 0 1 4.89 12c0-.8.14-1.57.38-2.29V6.62H1.29a11.97 11.97 0 0 0 0 10.76l3.98-3.09z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.98 3.09C6.22 6.86 8.87 4.75 12 4.75z"/>',
+  };
+  function icon(n, sz, extra) {
+    sz = sz || 20;
+    return (
+      '<svg width="' +
+      sz +
+      '" height="' +
+      sz +
+      '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ' +
+      (extra || "") +
+      ">" +
+      I[n] +
+      "</svg>"
+    );
+  }
+  document.querySelectorAll("[data-bm]").forEach((el) => {
+    el.innerHTML = icon("logo", 22);
+  });
+
+  /* ================= feature type catalog (PRD 21, data-driven) ================= */
+  const TYPES = {
+    corridor: { label: "Corridor", cat: "path", geom: "line", hue: "teal", ic: "route" },
+    hallway: { label: "Hallway", cat: "path", geom: "line", hue: "teal", ic: "route" },
+    openarea: { label: "Open area", cat: "path", geom: "poly", hue: "teal", ic: "openarea" },
+    ramp: { label: "Ramp", cat: "path", geom: "line", hue: "teal", ic: "route" },
+    shop: { label: "Shop", cat: "place", geom: "poly", hue: "indigo", ic: "shop" },
+    room: { label: "Room", cat: "place", geom: "poly", hue: "sky", ic: "openarea" },
+    restaurant: { label: "Restaurant", cat: "place", geom: "poly", hue: "orange", ic: "shop" },
+    office: { label: "Office", cat: "place", geom: "poly", hue: "slate", ic: "building" },
+    storage: { label: "Storage", cat: "place", geom: "poly", hue: "slate", ic: "building" },
+    toilet: { label: "Toilet", cat: "place", geom: "point", hue: "cyan", ic: "toilet" },
+    stair: {
+      label: "Stairs",
+      cat: "place",
+      geom: "point",
+      hue: "rose",
+      ic: "stair",
+      vertical: true,
+    },
+    lift: { label: "Lift", cat: "place", geom: "point", hue: "violet", ic: "lift", vertical: true },
+    escalator: {
+      label: "Escalator",
+      cat: "place",
+      geom: "point",
+      hue: "amber",
+      ic: "escalator",
+      vertical: true,
+    },
+    entrance: { label: "Entrance", cat: "place", geom: "point", hue: "green", ic: "door" },
+    other: { label: "Other", cat: "place", geom: "point", hue: "slate", ic: "other" },
+  };
+  const PALETTE = [
+    "shop",
+    "room",
+    "restaurant",
+    "toilet",
+    "stair",
+    "lift",
+    "entrance",
+    "escalator",
+    "other",
+  ];
+  const PATH_TAGS = ["corridor", "hallway", "openarea", "ramp"];
+  const hueOf = (t) => "h-" + (TYPES[t] ? TYPES[t].hue : "slate");
+  const fgOf = (t) =>
+    ({
+      teal: "#0F766E",
+      indigo: "#4338CA",
+      rose: "#BE123C",
+      violet: "#6D28D9",
+      orange: "#C2410C",
+      green: "#15803D",
+      cyan: "#0E7490",
+      amber: "#B45309",
+      slate: "#475569",
+      sky: "#0369A1",
+    })[TYPES[t] ? TYPES[t].hue : "slate"];
+  const bgOf = (t) =>
+    ({
+      teal: "#D8F1ED",
+      indigo: "#E5E4FB",
+      rose: "#FBE2E8",
+      violet: "#ECE4FB",
+      orange: "#FCE9DC",
+      green: "#DCF3E3",
+      cyan: "#D9F0F6",
+      amber: "#FCF0D9",
+      slate: "#E8EBF0",
+      sky: "#DBEDF8",
+    })[TYPES[t] ? TYPES[t].hue : "slate"];
+  const isConn = (t) => !!(TYPES[t] && TYPES[t].vertical);
+  function tileIco(t, sz) {
+    const T = TYPES[t];
+    return (
+      '<span class="tico" style="background:' +
+      bgOf(t) +
+      ";color:" +
+      fgOf(t) +
+      ";width:" +
+      (sz || 40) +
+      "px;height:" +
+      (sz || 40) +
+      'px">' +
+      icon(T.ic, Math.round((sz || 40) * 0.55)) +
+      "</span>"
+    );
+  }
+  function tchip(t, sub) {
+    const T = TYPES[t] || TYPES.other;
+    return (
+      '<span class="tchip ' + hueOf(t) + '">' + icon(T.ic, 13) + esc(sub || T.label) + "</span>"
+    );
+  }
+
+  /* ================= seed data ================= */
+  function F(id, subtype, name, o) {
+    const T = TYPES[subtype] || TYPES.other;
+    return Object.assign(
+      {
+        id: id,
+        subtype: subtype,
+        cat: T.cat,
+        geom: T.geom,
+        name: name,
+        access: "public",
+        status: "active",
+        confidence: "high",
+        notes: null,
+        props: {},
+      },
+      o,
+    );
+  }
+  function seedProjects() {
+    return [
+      {
+        id: "p1",
+        name: "ABC Shopping Mall",
+        address: "Panthapath, Dhaka",
+        created: "2026-09-28",
+        edited: "2 hours ago",
+        backupAt: null,
+        floors: [
+          {
+            id: "f0",
+            name: "Ground",
+            order: 0,
+            status: "completed",
+            scale: { calibrated: true, metersPerUnit: 1 },
+            features: [
+              F("e0", "entrance", "Main Entrance", { props: { kind: "main" }, p: { x: 2, y: 16 } }),
+              F("c0", "corridor", "Ground corridor", {
+                vs: [
+                  { x: 2, y: 14 },
+                  { x: 2, y: 6 },
+                  { x: 12, y: 6 },
+                ],
+              }),
+              F("s0", "shop", "Pharmacy", {
+                props: { shopNumber: "G-02" },
+                vs: [
+                  { x: 4, y: 6 },
+                  { x: 4, y: 2.5 },
+                  { x: 9, y: 2.5 },
+                  { x: 9, y: 6 },
+                ],
+              }),
+              F("t0", "toilet", "Toilets", { props: { gender: "unisex" }, p: { x: 13.8, y: 6.8 } }),
+            ],
+          },
+          {
+            id: "f1",
+            name: "Floor 1",
+            order: 1,
+            status: "completed",
+            scale: { calibrated: true, metersPerUnit: 1 },
+            features: [
+              F("e1", "entrance", "Entrance", { props: { kind: "entrance" }, p: { x: 2, y: 15 } }),
+              F("l1", "lift", "Lift lobby", { props: { kind: "passenger" }, p: { x: 2, y: 12.6 } }),
+              F("c1", "corridor", "Corridor 1", {
+                vs: [
+                  { x: 2, y: 11 },
+                  { x: 11, y: 11 },
+                  { x: 11, y: 4 },
+                ],
+              }),
+              F("s1", "restaurant", "Food Court", {
+                vs: [
+                  { x: 4.5, y: 11 },
+                  { x: 4.5, y: 6.8 },
+                  { x: 9, y: 6.8 },
+                  { x: 9, y: 11 },
+                ],
+              }),
+            ],
+          },
+          { id: "f2", name: "Floor 2", order: 2, status: "mapping", scale: null, features: [] },
+          {
+            id: "f3",
+            name: "Floor 3",
+            order: 3,
+            status: "mapping",
+            scale: { calibrated: true, metersPerUnit: 1 },
+            features: [
+              F("e3", "entrance", "Main Entrance", {
+                props: { kind: "main" },
+                p: { x: 2, y: 18.5 },
+              }),
+              F("c3", "corridor", "Main corridor", {
+                vs: [
+                  { x: 2, y: 17 },
+                  { x: 2, y: 10.5 },
+                  { x: 15.5, y: 10.5 },
+                ],
+              }),
+              F("c4", "corridor", "Corridor B", {
+                vs: [
+                  { x: 9, y: 10.5 },
+                  { x: 9, y: 4 },
+                ],
+              }),
+              F("s3", "shop", "ABC Fashion", {
+                props: { shopNumber: "304" },
+                vs: [
+                  { x: 10.9, y: 10.5 },
+                  { x: 10.9, y: 14.2 },
+                  { x: 15, y: 14.2 },
+                  { x: 15, y: 10.5 },
+                ],
+              }),
+              F("s4", "shop", "Shop 305", {
+                props: { shopNumber: "305" },
+                vs: [
+                  { x: 3.4, y: 14.4 },
+                  { x: 3.4, y: 11.3 },
+                  { x: 7.6, y: 11.3 },
+                  { x: 7.6, y: 14.4 },
+                ],
+              }),
+              F("st3", "stair", "Stairs", {
+                props: { direction: "up", toFloorId: "f4", accessible: "no" },
+                connectorGroupId: "cg1",
+                p: { x: 9, y: 3.7 },
+              }),
+              F("t3", "toilet", "Toilets", {
+                props: { gender: "unisex" },
+                p: { x: 16.9, y: 12.1 },
+              }),
+            ],
+          },
+          {
+            id: "f4",
+            name: "Floor 4",
+            order: 4,
+            status: "mapping",
+            scale: null,
+            features: [
+              F("st4", "stair", "Stairs", {
+                props: { direction: "down", toFloorId: "f3" },
+                connectorGroupId: "cg1",
+                p: { x: 9, y: 15 },
+              }),
+            ],
+          },
+        ],
+      },
+      {
+        id: "p2",
+        name: "Riverside Office B",
+        address: "Gulshan 2, Dhaka",
+        created: "2026-09-21",
+        edited: "last week",
+        backupAt: null,
+        floors: [
+          {
+            id: "g0",
+            name: "Ground",
+            order: 0,
+            status: "completed",
+            scale: null,
+            features: [
+              F("ge", "entrance", "Entrance", { props: { kind: "main" }, p: { x: 2, y: 11.5 } }),
+              F("gc", "corridor", "Corridor", {
+                vs: [
+                  { x: 2, y: 10 },
+                  { x: 10, y: 10 },
+                ],
+              }),
+              F("gs", "office", "Office 101", {
+                vs: [
+                  { x: 3, y: 10 },
+                  { x: 3, y: 5.5 },
+                  { x: 8, y: 5.5 },
+                  { x: 8, y: 10 },
+                ],
+              }),
+            ],
+          },
+        ],
+      },
+    ];
+  }
+
+  /* ================= state ================= */
+  let S = null;
+  const V = { k: 20, tx: 0, ty: 0, init: false };
+  function freshState() {
+    return {
+      screen: "firstrun",
+      projects: seedProjects(),
+      pid: null,
+      fid: null,
+      sel: null,
+      flow: null,
+      sheet: null,
+      dup: undefined,
+      npFloor: "Ground",
+      installHidden: false,
+      hist: { stack: [], idx: -1 },
+      snapCand: null,
+      snapFlash: null,
+      rag: false,
+      undoMemo: null,
+      calHintDismissed: false,
+      v3: { on: false, yaw: -0.65, pitch: 0.52, zoom: 1, focus: "all" },
+      desk3: false,
+    };
+  }
+  function ensureDemo() {
+    if (!S.projects.find((p) => p.id === "p1")) S.projects = seedProjects();
+  }
+  function curProj() {
+    return S.projects.find((p) => p.id === S.pid) || null;
+  }
+  function curFloor() {
+    const p = curProj();
+    return p ? p.floors.find((f) => f.id === S.fid) : null;
+  }
+  function fCounts(fl) {
+    let paths = 0,
+      places = 0,
+      conns = 0;
+    (fl ? fl.features : []).forEach((f) => {
+      if (isConn(f.subtype)) conns++;
+      else if (f.cat === "path") paths++;
+      else places++;
+    });
+    return { paths: paths, places: places, conns: conns, total: paths + places + conns };
+  }
+  function statusChip(st) {
+    if (st === "completed")
+      return '<span class="schip done">' + icon("check", 11) + "Completed</span>";
+    if (st === "mapping") return '<span class="schip live">In progress</span>';
+    return '<span class="schip draft">Draft</span>';
+  }
+  function autoName(sub) {
+    const floor = curFloor();
+    const n = floor ? floor.features.filter((f) => f.subtype === sub).length + 1 : 1;
+    return TYPES[sub].label + " " + n;
+  }
+
+  /* ================= geojson v2 (PRD 22) ================= */
+  const iso = "2026-09-28T09:41:00.000Z";
+  function isCal(fl) {
+    return !!(fl.scale && fl.scale.calibrated);
+  }
+  function unitOf(fl) {
+    return isCal(fl) ? "m" : "units";
+  }
+  function fmtLen(fl, u) {
+    return u.toFixed(1) + " " + unitOf(fl);
+  }
+  function scaleMult(fl) {
+    return isCal(fl) ? fl.scale.metersPerUnit : 1;
+  }
+  function geoJSONText(fl, proj) {
+    const cal = isCal(fl),
+      mult = scaleMult(fl);
+    const feats = fl.features.map((f) => {
+      let geometry;
+      if (f.geom === "point")
+        geometry = { type: "Point", coordinates: [r2(f.p.x * mult), r2(f.p.y * mult)] };
+      else if (f.geom === "line")
+        geometry = {
+          type: "LineString",
+          coordinates: f.vs.map((v) => [r2(v.x * mult), r2(v.y * mult)]),
+        };
+      else {
+        const ring = f.vs.map((v) => [r2(v.x * mult), r2(v.y * mult)]);
+        ring.push([r2(f.vs[0].x * mult), r2(f.vs[0].y * mult)]);
+        geometry = { type: "Polygon", coordinates: [ring] };
+      }
+      const props = {
+        floorId: fl.id,
+        floorName: fl.name,
+        type: f.cat,
+        subtype: f.subtype,
+        name: f.name || null,
+        access: f.access || "public",
+        status: f.status || "active",
+        confidence: f.confidence || "high",
+        notes: f.notes || null,
+        connections: f.props && f.props.connect ? [f.props.connect] : [],
+        createdAt: iso,
+        updatedAt: iso,
+      };
+      if (f.props && f.props.shopNumber) props.shopNumber = f.props.shopNumber;
+      if (f.props && f.props.gender) props.gender = f.props.gender;
+      if (f.props && f.props.kind) props.kind = f.props.kind;
+      if (isConn(f.subtype)) {
+        props.fromFloor = fl.name;
+        const tf = proj.floors.find((x) => x.id === f.props.toFloorId);
+        props.toFloor = tf ? tf.name : null;
+        props.direction = f.props.direction || null;
+      }
+      if (f.connectorGroupId) props.connectorGroupId = f.connectorGroupId;
+      return { type: "Feature", id: f.id, properties: props, geometry: geometry };
+    });
+    return JSON.stringify(
+      {
+        type: "FeatureCollection",
+        properties: {
+          app: "walk-and-plot",
+          schemaVersion: 2,
+          project: proj.name,
+          projectId: proj.id,
+          exportedAt: new Date().toISOString(),
+          floors: proj.floors
+            .slice()
+            .sort((a, b) => a.order - b.order)
+            .map((x) => ({ floorId: x.id, displayName: x.name, order: x.order })),
+          coordinateSystem: {
+            type: "local",
+            unit: cal ? "meters" : "units",
+            origin: "first-plotted-point-per-floor",
+            calibrated: cal,
+          },
+        },
+        features: feats,
+      },
+      null,
+      2,
+    );
+  }
+  function backupText() {
+    return JSON.stringify(
+      {
+        app: "walk-and-plot",
+        schemaVersion: 2,
+        exportedAt: new Date().toISOString(),
+        projects: S.projects,
+      },
+      null,
+      2,
+    );
+  }
+
+  /* ================= map shapes ================= */
+  function junctionPoints(floor) {
+    // PRD 18: junctions emerge - an endpoint snapped onto another path's middle,
+    // or 3+ path endpoints sharing one point. Never drawn directly.
+    const paths = floor.features.filter((f) => f.geom === "line");
+    const out = [];
+    paths.forEach((a) => {
+      [a.vs[0], a.vs[a.vs.length - 1]].forEach((e) => {
+        let onSeg = false,
+          coincident = 0;
+        paths.forEach((b) => {
+          if (b === a) return;
+          for (let i = 0; i < b.vs.length; i++) {
+            if (dist(b.vs[i], e) < 0.06) {
+              coincident++;
+              break;
+            }
+          }
+          if (coincident) return;
+          for (let i = 0; i < b.vs.length - 1; i++) {
+            const a2 = b.vs[i],
+              b2 = b.vs[i + 1];
+            const dx = b2.x - a2.x,
+              dy = b2.y - a2.y,
+              l2 = dx * dx + dy * dy || 1;
+            const t = ((e.x - a2.x) * dx + (e.y - a2.y) * dy) / l2;
+            const d = ptSegDist(e, a2, b2);
+            if (d < 0.06 && t > 0.02 && t < 0.98) {
+              onSeg = true;
+              break;
+            }
+          }
+        });
+        if (onSeg || coincident >= 2) {
+          if (!out.some((q) => dist(q, e) < 0.05)) out.push({ x: e.x, y: e.y });
+        }
+      });
+    });
+    return out;
+  }
+  function closestOnRing(vs, q) {
+    let b = null,
+      bd = 1e9;
+    for (let i = 0; i < vs.length; i++) {
+      const a = vs[i],
+        c = vs[(i + 1) % vs.length];
+      const dx = c.x - a.x,
+        dy = c.y - a.y,
+        l2 = dx * dx + dy * dy || 1;
+      let t = ((q.x - a.x) * dx + (q.y - a.y) * dy) / l2;
+      t = clamp(t, 0, 1);
+      const p = { x: a.x + t * dx, y: a.y + t * dy };
+      const d = dist(q, p);
+      if (d < bd) {
+        bd = d;
+        b = p;
+      }
+    }
+    return b;
+  }
+  function doorLinks(floor) {
+    // PRD 18: a place near a path records a door connection, drawn as a dotted link
+    const links = [];
+    const paths = floor.features.filter((f) => f.geom === "line");
+    floor.features.forEach((f) => {
+      if (f.cat !== "place" || isConn(f.subtype)) return;
+      const c = f.geom === "point" ? f.p : centroid(f.vs);
+      let best = null,
+        bd = 2.5;
+      paths.forEach((p) => {
+        for (let i = 0; i < p.vs.length - 1; i++) {
+          const a = p.vs[i],
+            b = p.vs[i + 1];
+          const dx = b.x - a.x,
+            dy = b.y - a.y,
+            l2 = dx * dx + dy * dy || 1;
+          let t = ((c.x - a.x) * dx + (c.y - a.y) * dy) / l2;
+          t = clamp(t, 0, 1);
+          const q = { x: a.x + t * dx, y: a.y + t * dy };
+          const d = dist(c, q);
+          if (d < bd) {
+            bd = d;
+            best = q;
+          }
+        }
+      });
+      if (!best) return;
+      const from = f.geom === "point" ? { x: f.p.x, y: f.p.y } : closestOnRing(f.vs, best);
+      const dd = dist(from, best);
+      if (dd > 0.15 && dd < 2.5) links.push({ from: from, to: best });
+    });
+    return links;
+  }
+  function shapesFor(floor, k, tx, ty, opts) {
+    opts = opts || {};
+    const L = opts.labels !== false,
+      sel = opts.sel || null;
+    const u = (v) => (v * k + tx).toFixed(1),
+      w = (v) => (v * k + ty).toFixed(1);
+    const sPath = (vs) => vs.map((p, i) => (i ? "L" : "M") + u(p.x) + " " + w(p.y)).join("");
+    let s = "";
+    // polygons first
+    floor.features.forEach((f) => {
+      if (f.geom !== "poly") return;
+      const fg = fgOf(f.subtype),
+        bg = bgOf(f.subtype);
+      const sw = f.id === sel ? 3 : 2;
+      s +=
+        '<path d="' +
+        sPath(f.vs) +
+        'Z" fill="' +
+        bg +
+        '" fill-opacity="0.62" stroke="' +
+        fg +
+        '" stroke-width="' +
+        ((sw * k) / 20).toFixed(1) +
+        '" stroke-linejoin="round"/>';
+      if (f.id === sel)
+        s +=
+          '<path d="' +
+          sPath(f.vs) +
+          'Z" fill="none" stroke="#4F46E5" stroke-width="2" stroke-dasharray="5 4"/>';
+    });
+    // door links (dotted, subtle)
+    doorLinks(floor).forEach((l) => {
+      s +=
+        '<line x1="' +
+        u(l.from.x) +
+        '" y1="' +
+        w(l.from.y) +
+        '" x2="' +
+        u(l.to.x) +
+        '" y2="' +
+        w(l.to.y) +
+        '" stroke="#A6AAB8" stroke-width="1.6" stroke-dasharray="2 3.5"/>';
+    });
+    // lines
+    floor.features.forEach((f) => {
+      if (f.geom !== "line") return;
+      const fg = fgOf(f.subtype),
+        bg = bgOf(f.subtype);
+      const cw = clamp(0.42 * k, 5, 13),
+        cc = clamp(0.18 * k, 2, 3.6);
+      const sw = f.id === sel ? cc + 1.4 : cc;
+      s +=
+        '<path d="' +
+        sPath(f.vs) +
+        '" fill="none" stroke="' +
+        bg +
+        '" stroke-width="' +
+        cw.toFixed(1) +
+        '" stroke-linecap="round" stroke-linejoin="round" opacity=".8"/>';
+      s +=
+        '<path d="' +
+        sPath(f.vs) +
+        '" fill="none" stroke="' +
+        (f.id === sel ? "#4F46E5" : fg) +
+        '" stroke-width="' +
+        sw.toFixed(1) +
+        '" stroke-linecap="round" stroke-linejoin="round"/>';
+    });
+    // emergent junctions
+    junctionPoints(floor).forEach((j) => {
+      s +=
+        '<circle cx="' +
+        u(j.x) +
+        '" cy="' +
+        w(j.y) +
+        '" r="5.5" fill="#fff" stroke="#4F46E5" stroke-width="2.4"/>';
+      s += '<circle cx="' + u(j.x) + '" cy="' + w(j.y) + '" r="1.7" fill="#4F46E5"/>';
+    });
+    // points
+    floor.features.forEach((f) => {
+      if (f.geom !== "point") return;
+      const fg = fgOf(f.subtype);
+      const r = clamp(0.5 * k, 7, 13);
+      s +=
+        '<circle cx="' +
+        u(f.p.x) +
+        '" cy="' +
+        w(f.p.y) +
+        '" r="' +
+        (r + 2.5).toFixed(1) +
+        '" fill="#fff"/>';
+      s +=
+        '<circle cx="' +
+        u(f.p.x) +
+        '" cy="' +
+        w(f.p.y) +
+        '" r="' +
+        r.toFixed(1) +
+        '" fill="' +
+        (f.id === sel ? "#4F46E5" : fg) +
+        '"/>';
+    });
+    // labels
+    if (L) {
+      floor.features.forEach((f) => {
+        if (!f.name) return;
+        const fg = fgOf(f.subtype);
+        let ax, ay;
+        if (f.geom === "poly") {
+          const c = centroid(f.vs);
+          ax = u(c.x);
+          ay = w(c.y);
+        } else if (f.geom === "line") {
+          const c = f.vs[Math.floor(f.vs.length / 2)];
+          ax = u(c.x);
+          ay = w(c.y);
+        } else {
+          ax = u(f.p.x);
+          ay = (parseFloat(w(f.p.y)) + clamp(0.5 * k, 7, 13) + 11).toFixed(1);
+        }
+        s +=
+          '<text x="' +
+          ax +
+          '" y="' +
+          ay +
+          '" text-anchor="middle" font-size="11.5" font-weight="600" font-family="Instrument Sans,sans-serif" fill="' +
+          fg +
+          '" stroke="#FBFBF9" stroke-width="3" paint-order="stroke">' +
+          esc(f.name) +
+          "</text>";
+      });
+    }
+    // selection handles + midpoint insert handles
+    if (sel) {
+      const f = floor.features.find((x) => x.id === sel);
+      if (f && f.vs) {
+        f.vs.forEach((v, i) => {
+          s +=
+            '<circle class="vh" data-fid="' +
+            f.id +
+            '" data-vh="' +
+            i +
+            '" cx="' +
+            u(v.x) +
+            '" cy="' +
+            w(v.y) +
+            '" r="7.5" fill="#fff" stroke="#4F46E5" stroke-width="2.6" style="cursor:grab"/>';
+        });
+        const n = f.vs.length,
+          wrap = f.geom === "poly";
+        for (let i = 0; i < (wrap ? n : n - 1); i++) {
+          const a = f.vs[i],
+            b = f.vs[(i + 1) % n];
+          const m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+          s +=
+            '<circle class="mh" data-fid="' +
+            f.id +
+            '" data-mh="' +
+            i +
+            '" cx="' +
+            u(m.x) +
+            '" cy="' +
+            w(m.y) +
+            '" r="4.5" fill="#fff" stroke="#4F46E5" stroke-width="1.8" stroke-dasharray="2 2" style="cursor:copy"/>';
+        }
+      }
+    }
+    return s;
+  }
+  function snapPose(p) {
+    // snap priority per PRD 13: endpoints > segments > grid
+    const floor = curFloor();
+    if (!floor) return null;
+    const tolE = 12 / V.k,
+      tolS = 10 / V.k;
+    let best = null,
+      bd = tolE;
+    floor.features.forEach((f) => {
+      if (f.geom !== "line") return;
+      f.vs.forEach((v) => {
+        const d = dist(p, v);
+        if (d < bd) {
+          bd = d;
+          best = { x: v.x, y: v.y, kind: "endpoint" };
+        }
+      });
+    });
+    if (best) return best;
+    bd = tolS;
+    if (S.flow && S.flow.tool === "path") {
+      floor.features.forEach((f) => {
+        if (f.geom !== "line") return;
+        for (let i = 0; i < f.vs.length - 1; i++) {
+          const a = f.vs[i],
+            b = f.vs[i + 1];
+          const dx = b.x - a.x,
+            dy = b.y - a.y,
+            l2 = dx * dx + dy * dy || 1;
+          let t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2;
+          t = clamp(t, 0, 1);
+          const q = { x: a.x + t * dx, y: a.y + t * dy };
+          const d = dist(p, q);
+          if (d < bd) {
+            bd = d;
+            best = { x: q.x, y: q.y, kind: "segment" };
+          }
+        }
+      });
+    }
+    return best;
+  }
+  function gridStepPx() {
+    const steps = [0.1, 0.2, 0.25, 0.5, 1, 2, 5, 10];
+    let g = steps[0];
+    steps.forEach((s) => {
+      if (s * V.k <= 34) g = s;
+    });
+    return g;
+  }
+  function constrain45(p0, p1) {
+    const dx = p1.x - p0.x,
+      dy = p1.y - p0.y;
+    const len = Math.hypot(dx, dy);
+    const step = Math.PI / 4;
+    const ang = Math.round(Math.atan2(dy, dx) / step) * step;
+    return { x: p0.x + Math.cos(ang) * len, y: p0.y + Math.sin(ang) * len };
+  }
+  function effPoint(raw) {
+    // grid snap -> right-angle lock -> magnet override (PRD 13)
+    let p = {
+      x: Math.round(raw.x / gridStepPx()) * gridStepPx(),
+      y: Math.round(raw.y / gridStepPx()) * gridStepPx(),
+    };
+    const fl = S.flow;
+    if (fl && fl.vs.length && S.rag) p = constrain45(fl.vs[fl.vs.length - 1], p);
+    const snap = snapPose(p);
+    if (snap) return snap;
+    return p;
+  }
+  function plotPreview(k, tx, ty) {
+    const fl = S.flow;
+    if (!fl) return "";
+    const u = (v) => (v.x * k + tx).toFixed(1),
+      w = (v) => (v.y * k + ty).toFixed(1);
+    const pts = fl.vs.map((p) => u(p.x) + "," + w(p.y)).join(" ");
+    let s = "";
+    // rubber band + right-angle guide to the pointer
+    if (fl.stage === "plot" && S.pointerM) {
+      const last = fl.vs[fl.vs.length - 1];
+      if (last) {
+        let g = effPoint(S.pointerM);
+        const valid = fl.tool === "path" ? fl.vs.length >= 2 : fl.vs.length >= 3;
+        const nearStart = valid && dist(g, fl.vs[0]) * k < 12;
+        s +=
+          '<line x1="' +
+          u(last.x) +
+          '" y1="' +
+          w(last.y) +
+          '" x2="' +
+          u(g.x) +
+          '" y2="' +
+          w(g.y) +
+          '" stroke="#4F46E5" stroke-width="1.6" stroke-dasharray="4 4" opacity=".55"/>';
+        if (fl.tool === "place" && fl.vs.length >= 2) {
+          s +=
+            '<path d="M' +
+            u(last.x) +
+            " " +
+            w(last.y) +
+            " L" +
+            u(g.x) +
+            " " +
+            w(g.y) +
+            " L" +
+            u(fl.vs[0].x) +
+            " " +
+            w(fl.vs[0].y) +
+            '" fill="none" stroke="#4F46E5" stroke-width="1" stroke-dasharray="3 4" opacity=".4"/>';
+        }
+        s +=
+          '<circle cx="' +
+          u(g.x) +
+          '" cy="' +
+          w(g.y) +
+          '" r="4" fill="' +
+          (nearStart ? "#15803D" : "#4F46E5") +
+          '" opacity=".45"/>';
+      }
+    }
+    if (fl.vs.length) {
+      if (fl.tool === "place" && fl.vs.length >= 2) {
+        s +=
+          '<path d="M' +
+          u(fl.vs[fl.vs.length - 1].x) +
+          " " +
+          w(fl.vs[fl.vs.length - 1].y) +
+          " L" +
+          u(fl.vs[0].x) +
+          " " +
+          w(fl.vs[0].y) +
+          '" fill="none" stroke="#4F46E5" stroke-width="2" stroke-dasharray="5 4" opacity=".8"/>';
+      }
+      if (fl.vs.length > 1)
+        s +=
+          '<polyline points="' +
+          pts +
+          '" fill="none" stroke="#4F46E5" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>';
+      if (fl.tool === "place" && fl.vs.length >= 3) {
+        s += '<path d="M' + pts + 'Z" fill="#4F46E5" opacity=".13"/>';
+      }
+      fl.vs.forEach((v, i) => {
+        const closable =
+          fl.stage === "plot" &&
+          ((fl.tool === "path" && fl.vs.length >= 2) ||
+            (fl.tool === "place" && fl.vs.length >= 3)) &&
+          i === 0;
+        s +=
+          '<circle cx="' +
+          u(v.x) +
+          '" cy="' +
+          w(v.y) +
+          '" r="' +
+          (closable ? "6.5" : "4.5") +
+          '" fill="' +
+          (closable ? "#15803D" : "#4F46E5") +
+          '" stroke="#fff" stroke-width="2"/>';
+      });
+    }
+    // snapping indicator (PRD 13: show what will snap before release)
+    if (S.snapCand) {
+      s +=
+        '<circle cx="' +
+        u(S.snapCand.x) +
+        '" cy="' +
+        w(S.snapCand.y) +
+        '" r="10" fill="none" stroke="#4F46E5" stroke-width="2.2" stroke-dasharray="3 3"/>';
+    }
+    if (S.snapFlash) {
+      s +=
+        '<circle cx="' +
+        u(S.snapFlash.x) +
+        '" cy="' +
+        w(S.snapFlash.y) +
+        '" r="11" fill="none" stroke="' +
+        (S.snapFlash.kind === "endpoint" ? "#15803D" : "#4F46E5") +
+        '" stroke-width="2.6"/>';
+    }
+    return s;
+  }
+  function readoutText() {
+    const fl = S.flow,
+      floor = curFloor();
+    if (!fl || !floor) return "";
+    if (fl.stage === "place") return TYPES[fl.subtype].label + " - tap the map to place it";
+    const n = fl.vs.length;
+    if (fl.tool === "path") {
+      if (!n) return "Trace Path - tap to add points";
+      return fmtLen(floor, pathLen(fl.vs)) + " - " + n + " point" + (n > 1 ? "s" : "");
+    }
+    if (!n) return "Trace the area boundary - tap each corner";
+    const per = pathLen(fl.vs.concat([{ x: fl.vs[0].x, y: fl.vs[0].y }]));
+    return "perimeter " + fmtLen(floor, per) + " - " + n + " corner" + (n > 1 ? "s" : "");
+  }
+  function paintMap() {
+    const g = document.getElementById("mapg");
+    if (!g || !curFloor()) return;
+    g.innerHTML =
+      shapesFor(curFloor(), V.k, V.tx, V.ty, { sel: S.sel }) + plotPreview(V.k, V.tx, V.ty);
+    const ro = document.getElementById("readout");
+    if (ro) {
+      const t = readoutText();
+      ro.textContent = t;
+      ro.style.display = t ? "block" : "none";
+    }
+    const fl = S.flow;
+    if (fl && fl.stage === "plot") {
+      const b = document.getElementById("plot-done");
+      if (b) b.disabled = fl.geom === "line" ? fl.vs.length < 2 : fl.vs.length < 3;
+    }
+  }
+  function fitMap() {
+    const wrap = document.getElementById("mapwrap");
+    if (!wrap) return;
+    const W = wrap.clientWidth,
+      H = wrap.clientHeight;
+    const floor = curFloor();
+    if (!floor || !W) return;
+    let xs = [],
+      ys = [];
+    floor.features.forEach((f) => {
+      if (f.geom === "point") {
+        xs.push(f.p.x);
+        ys.push(f.p.y);
+      } else {
+        f.vs.forEach((v) => {
+          xs.push(v.x);
+          ys.push(v.y);
+        });
+      }
+    });
+    if (S.flow)
+      S.flow.vs.forEach((v) => {
+        xs.push(v.x);
+        ys.push(v.y);
+      });
+    if (!xs.length) {
+      V.k = 20;
+      V.tx = W / 2 - 8 * 20;
+      V.ty = H / 2 - 8 * 20;
+      V.init = true;
+      paintMap();
+      return;
+    }
+    const minX = Math.min.apply(null, xs),
+      maxX = Math.max.apply(null, xs);
+    const minY = Math.min.apply(null, ys),
+      maxY = Math.max.apply(null, ys);
+    const bw = Math.max(maxX - minX, 2),
+      bh = Math.max(maxY - minY, 2);
+    V.k = clamp(Math.min((W - 70) / bw, (H - 120) / bh), 7, 52);
+    V.tx = (W - bw * V.k) / 2 - minX * V.k;
+    V.ty = (H - bh * V.k) / 2 - minY * V.k;
+    V.init = true;
+    paintMap();
+  }
+  function zoomAt(px, py, f) {
+    const nk = clamp(V.k * f, 7, 56);
+    V.tx = px - (px - V.tx) * (nk / V.k);
+    V.ty = py - (py - V.ty) * (nk / V.k);
+    V.k = nk;
+    paintMap();
+  }
+  function staticMapSvg(floor, W, H) {
+    let xs = [],
+      ys = [];
+    floor.features.forEach((f) => {
+      if (f.geom === "point") {
+        xs.push(f.p.x);
+        ys.push(f.p.y);
+      } else {
+        f.vs.forEach((v) => {
+          xs.push(v.x);
+          ys.push(v.y);
+        });
+      }
+    });
+    if (!xs.length)
+      return (
+        '<svg width="100%" height="' +
+        H +
+        '" viewBox="0 0 ' +
+        W +
+        " " +
+        H +
+        '"><text x="50%" y="50%" text-anchor="middle" fill="#9A9EAA" font-size="12" font-family="Instrument Sans">No features yet</text></svg>'
+      );
+    const minX = Math.min.apply(null, xs),
+      maxX = Math.max.apply(null, xs);
+    const minY = Math.min.apply(null, ys),
+      maxY = Math.max.apply(null, ys);
+    const bw = Math.max(maxX - minX, 2),
+      bh = Math.max(maxY - minY, 2);
+    const k = Math.min((W - 46) / bw, (H - 46) / bh);
+    const tx = (W - bw * k) / 2 - minX * k,
+      ty = (H - bh * k) / 2 - minY * k;
+    return (
+      '<svg width="100%" height="' +
+      H +
+      '" viewBox="0 0 ' +
+      W +
+      " " +
+      H +
+      '" style="background:#FBFBF9;display:block"><g>' +
+      shapesFor(floor, k, tx, ty, { labels: W > 200 }) +
+      "</g></svg>"
+    );
+  }
+
+  /* ================= screen views ================= */
+  function phoneShell(inner, sheet) {
+    return (
+      '<div class="phone"><div class="pscreen">' +
+      '<div class="island"></div>' +
+      '<div class="sbar"><span>9:41</span><span class="sicons">' +
+      '<svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>' +
+      '<svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor"><path d="M8 9.2a1.4 1.4 0 1 1 0 2.8 1.4 1.4 0 0 1 0-2.8zM8 5.6c1.5 0 2.9.6 3.9 1.6l-1.4 1.4A3.5 3.5 0 0 0 8 7.5c-1 0-1.9.4-2.5 1.1L4.1 7.2A5.5 5.5 0 0 1 8 5.6zM8 2c2.5 0 4.8 1 6.5 2.7l-1.4 1.4A7.2 7.2 0 0 0 8 4a7.2 7.2 0 0 0-5.1 2.1L1.5 4.7A9.2 9.2 0 0 1 8 2z" transform="translate(0 -2)"/></svg>' +
+      '<svg width="25" height="12" viewBox="0 0 25 12"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" fill="none" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="15" height="8" rx="2" fill="currentColor"/><path d="M23 4v4a2.2 2.2 0 0 0 0-4z" fill="currentColor" opacity=".4"/></svg>' +
+      "</span></div>" +
+      inner +
+      (sheet || "") +
+      '<div id="toast"></div>' +
+      '<div class="homebar"></div>' +
+      "</div></div>"
+    );
+  }
+  function appbar(backA, title, sub, rightHTML) {
+    return (
+      '<div class="appbar">' +
+      (backA
+        ? '<button class="iconbtn" data-a="' +
+          backA +
+          '" aria-label="Back">' +
+          icon("back") +
+          "</button>"
+        : "") +
+      '<div class="grow"><h2>' +
+      esc(title) +
+      "</h2>" +
+      (sub ? '<div class="sub">' + esc(sub) + "</div>" : "") +
+      "</div>" +
+      (rightHTML || "") +
+      "</div>"
+    );
+  }
+  function vFirstrun() {
+    return (
+      '<div class="scr signin dotgrid">' +
+      '<div><div class="logo-lg">' +
+      icon("logo", 38) +
+      "</div>" +
+      '<div class="brandname">Walk &amp; Plot</div>' +
+      '<div class="tagline">Walk. Map. Export.</div>' +
+      '<p class="pitch">Map any building with just your phone.<br>No account needed. Works offline.</p></div>' +
+      '<button class="btn primary" data-a="new-project">' +
+      icon("plus", 18) +
+      "Create Your First Project</button>" +
+      '<p class="tiny">Everything stays on this device.<br>Back it up as a file anytime.</p>' +
+      "</div>"
+    );
+  }
+  function vDashboard() {
+    if (!S.projects.length) {
+      return (
+        appbar(null, "My projects", null, "") +
+        '<div class="scr donecenter" style="padding-top:90px">' +
+        '<div class="donebig" style="background:var(--a-accent-soft);color:var(--a-accent)">' +
+        icon("building", 38) +
+        "</div>" +
+        "<h2>No projects yet</h2><p>Create a project, then map its first floor.</p>" +
+        '<div style="padding:0 18px"><button class="btn primary" data-a="new-project">' +
+        icon("plus", 18) +
+        "New Project</button></div>" +
+        "</div>"
+      );
+    }
+    const rows = S.projects
+      .map((p) => {
+        const nf = p.floors.length;
+        const mapped = p.floors.filter((f) => f.features.length > 0).length;
+        const thumbFloor = p.floors.reduce(
+          (a, f) => (f.features.length > (a ? a.features.length : 0) ? f : a),
+          null,
+        );
+        return (
+          '<button class="row" data-a="open-project" data-id="' +
+          p.id +
+          '">' +
+          '<span class="thumb">' +
+          (thumbFloor ? staticMapSvg(thumbFloor, 52, 52) : "") +
+          "</span>" +
+          '<span class="grow"><span class="rt">' +
+          esc(p.name) +
+          "</span>" +
+          '<span class="rm" style="display:block">' +
+          nf +
+          " floor" +
+          (nf > 1 ? "s" : "") +
+          " - " +
+          mapped +
+          " mapped - edited " +
+          esc(p.edited || "recently") +
+          "</span></span>" +
+          '<span class="chev">' +
+          icon("chev", 16) +
+          "</span></button>"
+        );
+      })
+      .join("");
+    return (
+      appbar(
+        null,
+        "My projects",
+        "No account - everything on this device",
+        '<button class="iconbtn" data-a="import-backup" aria-label="Import backup">' +
+          icon("copy") +
+          "</button>",
+      ) +
+      '<div class="scr-body"><div class="hello"><h2>Good morning</h2><p>Choose a project, or start a new survey.</p></div>' +
+      '<button class="btn primary" data-a="new-project">' +
+      icon("plus", 18) +
+      "New Project</button>" +
+      (S.installHidden
+        ? ""
+        : '<div class="install"><span style="color:var(--a-accent-deep)">' +
+          icon("download", 20) +
+          '</span><span class="grow"><span class="it" style="display:block">Install Walk &amp; Plot</span><span class="is">Add to Home Screen for offline mapping</span></span><button class="btn small" data-a="install-demo">Install</button><button class="iconbtn" style="width:32px;height:32px;border:none;background:none" data-a="install-close" aria-label="Dismiss">' +
+          icon("close", 16) +
+          "</button></div>") +
+      '<div class="sect">Your projects</div>' +
+      rows +
+      '<p class="tiny" style="margin-top:16px">Projects are stored locally on this device.<br>Download a backup file to keep them safe.</p></div>'
+    );
+  }
+  function vProject() {
+    const p = curProj();
+    if (!p) return vDashboard();
+    const fs = p.floors.slice().sort((a, b) => a.order - b.order);
+    const rows = fs
+      .map((f) => {
+        const c = fCounts(f);
+        return (
+          '<button class="row" data-a="open-floor" data-id="' +
+          f.id +
+          '">' +
+          '<span class="thumb">' +
+          (f.features.length
+            ? staticMapSvg(f, 52, 52)
+            : '<span style="display:grid;place-items:center;height:100%;color:var(--a-ink3)">' +
+              icon("building", 22) +
+              "</span>") +
+          "</span>" +
+          '<span class="grow"><span class="rt">' +
+          esc(f.displayName || f.name) +
+          '</span><span class="rm" style="display:block">' +
+          c.total +
+          " item" +
+          (c.total === 1 ? "" : "s") +
+          (f.scale && f.scale.calibrated ? " - calibrated" : "") +
+          "</span></span>" +
+          statusChip(f.status) +
+          '<span class="chev">' +
+          icon("chev", 16) +
+          "</span></button>"
+        );
+      })
+      .join("");
+    const st = fs.every((f) => f.status === "completed") ? "completed" : "mapping";
+    const banner =
+      p.id === "p1" && !p.backupAt && !S.backupDismissed
+        ? '<div class="banner"><span style="color:var(--a-warn)">' +
+          icon("alert", 18) +
+          '</span><span class="grow"><span class="bt">Last backup 12 days ago.</span></span><button class="btn small" data-a="backup-demo">Download Backup</button><button class="iconbtn" style="width:28px;height:28px;border:none;background:none;color:var(--a-warn)" data-a="dismiss-backup" aria-label="Dismiss">' +
+          icon("close", 14) +
+          "</button></div>"
+        : "";
+    return (
+      appbar(
+        "back-dash",
+        p.name,
+        p.address || "No address",
+        '<button class="iconbtn" data-a="export-open" aria-label="Download map file">' +
+          icon("download") +
+          '</button><button class="iconbtn" style="margin-left:6px" data-a="proj-menu" aria-label="More">' +
+          icon("pencil") +
+          "</button>",
+      ) +
+      '<div class="scr-body"><div class="pmeta">' +
+      statusChip(st) +
+      "<span>" +
+      fs.length +
+      " floors</span><span>-</span><span>" +
+      fs.reduce((a, f) => a + f.features.length, 0) +
+      " items total</span></div>" +
+      banner +
+      '<div class="sect">Floors</div>' +
+      (fs.length
+        ? rows
+        : '<div class="note" style="margin-bottom:8px">' +
+          icon("building", 18) +
+          "<span>No floors yet. Create the first one to start mapping.</span></div>") +
+      '<button class="btn' +
+      (fs.length ? "" : " primary") +
+      '" style="margin-top:10px" data-a="add-floor">' +
+      icon("plus", 18) +
+      (fs.length ? "Add floor" : "Create first floor") +
+      "</button>" +
+      '<p class="tiny" style="margin-top:14px">Tap a floor to open the mapping workspace.<br>Floors stay editable after finishing.</p></div>'
+    );
+  }
+  function vFloorDone() {
+    const fl = curFloor();
+    if (!fl) return vDashboard();
+    const c = fCounts(fl);
+    return (
+      appbar("back-proj", fl.name, curProj().name) +
+      '<div class="scr donecenter">' +
+      '<div class="donebig">' +
+      icon("check", 40) +
+      "</div>" +
+      "<h2>" +
+      esc(fl.name) +
+      " completed</h2>" +
+      "<p>Nice walk. Completed floors stay editable.</p>" +
+      '<div class="donechips"><span class="tchip h-teal">' +
+      icon("route", 13) +
+      c.paths +
+      ' paths</span><span class="tchip h-indigo">' +
+      icon("shop", 13) +
+      c.places +
+      ' places</span><span class="tchip h-rose">' +
+      icon("stair", 13) +
+      c.conns +
+      " connections</span></div>" +
+      "</div>" +
+      '<div class="scr-foot"><button class="btn primary" data-a="export-open">' +
+      icon("download", 18) +
+      "Download map file</button>" +
+      '<button class="btn" data-a="back-proj">Back to project</button></div>'
+    );
+  }
+  function vMap() {
+    const fl = curFloor();
+    if (!fl) return vDashboard();
+    const flow = S.flow;
+    const v3 = S.v3 && S.v3.on;
+    const cal = isCal(fl);
+    const redo =
+      '<span style="display:inline-flex;transform:scaleX(-1)">' + icon("undo") + "</span>";
+    const top =
+      '<div class="appbar">' +
+      '<button class="iconbtn" data-a="back-proj" aria-label="Back">' +
+      icon("back") +
+      "</button>" +
+      '<div class="grow"><h2>' +
+      esc(fl.name) +
+      '</h2><div class="sub">' +
+      esc(curProj().name) +
+      '<span class="savedot" id="savedot" style="margin-left:6px"><i></i>Saved</span></div></div>' +
+      '<span class="untchip">' +
+      (cal ? "m" : "units") +
+      "</span>" +
+      '<button class="iconbtn" style="margin-left:6px" data-a="hist-undo" aria-label="Undo">' +
+      icon("undo") +
+      "</button>" +
+      '<button class="iconbtn" style="margin-left:6px" data-a="hist-redo" aria-label="Redo">' +
+      redo +
+      "</button>" +
+      "</div>";
+    if (v3) {
+      const floors = curProj()
+        .floors.slice()
+        .sort((a, b) => a.order - b.order);
+      const canvas =
+        '<div class="mapwrap" id="mapwrap"><div id="v3d"></div>' +
+        '<div class="maptools">' +
+        '<button class="iconbtn circle txt3d" data-a="toggle-3d" aria-label="Back to 2D">2D</button>' +
+        '<button class="iconbtn circle" data-a="v3-reset" aria-label="Reset view">' +
+        icon("fit") +
+        "</button>" +
+        '<button class="iconbtn circle" data-a="v3-top" aria-label="Top view">' +
+        icon("openarea") +
+        "</button></div>" +
+        '<div class="maphint">Drag to rotate - scroll to zoom</div></div>';
+      const bar =
+        '<div class="mapbar"><div style="display:flex;gap:6px;overflow-x:auto;flex:1;min-width:0;padding:2px">' +
+        '<button class="choice' +
+        (S.v3.focus === "all" ? " on" : "") +
+        '" data-a="v3-focus" data-s="all">All floors</button>' +
+        floors
+          .map(
+            (x) =>
+              '<button class="choice' +
+              (S.v3.focus === x.id ? " on" : "") +
+              '" data-a="v3-focus" data-s="' +
+              x.id +
+              '">' +
+              esc(x.name) +
+              "</button>",
+          )
+          .join("") +
+        '</div><button class="btn small" style="min-height:44px;flex:none" data-a="toggle-3d">' +
+        icon("route", 15) +
+        "Edit in 2D</button></div>";
+      return '<div class="scr">' + top + canvas + bar + "</div>";
+    }
+    const plotting = flow && flow.stage === "plot";
+    const placing = flow && flow.stage === "place";
+    const sel = S.sel ? fl.features.find((x) => x.id === S.sel) : null;
+    const tools =
+      '<div class="maptools">' +
+      '<button class="iconbtn circle txt3d" data-a="toggle-3d" aria-label="3D view">3D</button>' +
+      '<button class="iconbtn circle" data-a="zoom-in" aria-label="Zoom in">' +
+      icon("zin") +
+      "</button>" +
+      '<button class="iconbtn circle" data-a="zoom-out" aria-label="Zoom out">' +
+      icon("zout") +
+      "</button>" +
+      '<button class="iconbtn circle" data-a="fit" aria-label="Fit map">' +
+      icon("fit") +
+      "</button></div>";
+    let canvas =
+      '<div class="mapwrap dotgrid" id="mapwrap"><svg id="mapsvg" class="' +
+      (plotting || placing ? "plotting" : "") +
+      '"><g id="mapg"></g></svg>' +
+      '<div class="readout" id="readout"></div>' +
+      tools;
+    if (plotting) {
+      canvas +=
+        '<div class="maphint">' +
+        (flow.tool === "path"
+          ? "Tap to add points - tap the green dot or Done to finish"
+          : "Tap each corner - Done needs 3") +
+        "</div>";
+    } else if (placing) {
+      canvas +=
+        '<div class="maphint">Tap the map to place ' + esc(TYPES[flow.subtype].label) + "</div>";
+    } else if (!cal && !S.calHintDismissed) {
+      canvas +=
+        '<div class="maphint" style="pointer-events:auto;display:flex;align-items:center;gap:6px">Tip: Set Real Length gives real measurements.' +
+        '<button class="btn small" style="margin-left:auto;flex:none" data-a="calibrate">Set length</button>' +
+        '<button class="iconbtn" style="width:26px;height:26px;border:none;background:none;flex:none" data-a="dismiss-hint" aria-label="Dismiss">' +
+        icon("close", 14) +
+        "</button></div>";
+    }
+    canvas += "</div>";
+    let bar;
+    if (plotting) {
+      bar =
+        '<div class="mapbar">' +
+        '<button class="raggle' +
+        (S.rag ? " on" : "") +
+        '" data-a="toggle-rag" aria-label="Right-angle lock" title="Right-angle lock">45/90</button>' +
+        '<div style="flex:1;min-width:0"><button class="btn primary" id="plot-done" data-a="plot-done" disabled>' +
+        icon("check", 18) +
+        "Done</button></div>" +
+        '<button class="iconbtn circle" data-a="plot-undo" aria-label="Undo corner">' +
+        icon("undo") +
+        "</button></div>";
+    } else if (placing) {
+      bar =
+        '<div class="mapbar"><button class="iconbtn circle" data-a="plot-cancel" aria-label="Cancel">' +
+        icon("close") +
+        "</button>" +
+        '<div class="selinfo"><span class="sn">' +
+        esc(TYPES[flow.subtype].label) +
+        '</span><span class="sd">' +
+        (isConn(flow.subtype)
+          ? "Saves now - then pick the floors it connects"
+          : "Saves now - add details after") +
+        "</span></div></div>";
+    } else if (sel) {
+      bar =
+        '<div class="mapbar"><div class="selinfo"><span style="display:flex;gap:6px;align-items:center;min-width:0">' +
+        tchip(sel.subtype) +
+        '<span class="sn">' +
+        esc(sel.name || "Unnamed") +
+        "</span></span>" +
+        '<span class="sd">' +
+        (sel.vs
+          ? "Drag corners - tap a dashed midpoint to add one"
+          : "Point place - drag to move it") +
+        "</span></div>" +
+        '<button class="iconbtn" data-a="edit-details" aria-label="Edit details">' +
+        icon("pencil") +
+        "</button>" +
+        '<button class="iconbtn danger" style="margin-left:6px" data-a="sel-delete" aria-label="Delete">' +
+        icon("trash") +
+        "</button></div>";
+    } else {
+      bar =
+        '<div class="mapbar"><div class="toolrow">' +
+        '<button class="tool" data-a="trace-path">' +
+        icon("route", 18) +
+        "Trace Path</button>" +
+        '<button class="tool" data-a="palette">' +
+        tileIco("shop", 26) +
+        "Add Place</button></div>" +
+        '<button class="btn small" style="min-height:52px" data-a="finish-sheet">' +
+        icon("flag", 16) +
+        "Finish</button></div>";
+    }
+    return '<div class="scr">' + top + canvas + bar + "</div>";
+  }
+
+  /* ================= sheets ================= */
+  function icoSpan(ic, bg, fg) {
+    return (
+      '<span class="tico" style="background:' +
+      bg +
+      ";color:" +
+      fg +
+      ';width:42px;height:42px;border-radius:13px;display:grid;place-items:center">' +
+      icon(ic, 22) +
+      "</span>"
+    );
+  }
+  function shHead(ico, title, sub, closeA) {
+    return (
+      '<div class="grab"></div><div class="shead">' +
+      ico +
+      '<div class="grow"><h3>' +
+      title +
+      "</h3>" +
+      (sub ? '<div class="sub">' + sub + "</div>" : "") +
+      "</div>" +
+      '<button class="iconbtn" data-a="' +
+      (closeA || "sheet-close") +
+      '" aria-label="Close">' +
+      icon("close", 16) +
+      "</button></div>"
+    );
+  }
+  function chipsRow(label, fld, opts, cur) {
+    return (
+      '<span class="flabel">' +
+      label +
+      '</span><div class="chiprow">' +
+      opts
+        .map(
+          (o) =>
+            '<button class="choice' +
+            (cur === o[0] ? " on" : "") +
+            '" data-a="dchip" data-d="' +
+            fld +
+            ":" +
+            o[0] +
+            '">' +
+            o[1] +
+            "</button>",
+        )
+        .join("") +
+      "</div>"
+    );
+  }
+  function sheetHTML() {
+    const sh = S.sheet;
+    if (!sh) return "";
+    const dismiss = [
+      "palette",
+      "new",
+      "floor",
+      "menu",
+      "rename",
+      "export",
+      "finish",
+      "calibrate",
+    ].includes(sh.kind);
+    const backA = dismiss ? "sheet-close" : sh.kind === "discard" ? "discard-keep" : "noop";
+    return (
+      '<div class="sheet-wrap"><button class="backdrop" data-a="' +
+      backA +
+      '" aria-label="Close" tabindex="-1"></button><div class="sheet">' +
+      sheetBody(sh) +
+      "</div></div>"
+    );
+  }
+  function sheetBody(sh) {
+    if (sh.kind === "palette") {
+      return (
+        shHead(
+          icoSpan("hand", "var(--a-accent-soft)", "var(--a-accent)"),
+          "What is it?",
+          "Pick a type, then tap the map",
+        ) +
+        '<div class="tilegrid">' +
+        PALETTE.map(
+          (t) =>
+            '<button class="tile" data-a="pick-type" data-t="' +
+            t +
+            '">' +
+            tileIco(t, 40) +
+            "<span>" +
+            esc(TYPES[t].label) +
+            "</span></button>",
+        ).join("") +
+        "</div>"
+      );
+    }
+    if (sh.kind === "detail" || sh.kind === "detail-path") return sheetDetail();
+    if (sh.kind === "calibrate") return sheetCalibrate();
+    if (sh.kind === "export") return sheetExport();
+    if (sh.kind === "finish") {
+      const c = fCounts(curFloor());
+      return (
+        shHead(
+          icoSpan("flag", "var(--a-accent-soft)", "var(--a-accent)"),
+          "Finish " + esc(curFloor().name) + "?",
+          "Completed floors stay editable",
+        ) +
+        '<div class="statgrid"><div class="stat"><b>' +
+        c.paths +
+        '</b><span>paths</span></div><div class="stat"><b>' +
+        c.places +
+        '</b><span>places</span></div><div class="stat"><b>' +
+        c.conns +
+        "</b><span>connectors</span></div></div>" +
+        '<div class="note">' +
+        icon("info", 18) +
+        "<span>Nothing is locked. You can reopen any completed floor and keep editing.</span></div>" +
+        '<div style="display:flex;gap:8px;margin-top:14px"><button class="btn" data-a="sheet-close">Keep mapping</button><button class="btn primary" data-a="finish-floor">Finish floor</button></div>'
+      );
+    }
+    if (sh.kind === "new") {
+      return (
+        shHead(
+          icoSpan("building", "var(--a-accent-soft)", "var(--a-accent)"),
+          "New Project",
+          "Name it, then create your first floor",
+        ) +
+        '<span class="flabel">Building name</span><input class="field" id="np-name" placeholder="ABC Shopping Mall">' +
+        '<span class="flabel">Address or description (optional)</span><input class="field" id="np-addr" placeholder="Street, area, city">' +
+        '<span class="flabel">Starting floor</span><div class="chiprow">' +
+        ["Ground", "1", "2", "3", "B1", "Custom"]
+          .map(
+            (c) =>
+              '<button class="choice' +
+              (S.npFloor === c ? " on" : "") +
+              '" data-a="np-floor" data-s="' +
+              c +
+              '">' +
+              c +
+              "</button>",
+          )
+          .join("") +
+        "</div>" +
+        '<input class="field" id="np-custom" placeholder="e.g. Mezzanine" hidden style="margin-top:8px">' +
+        '<div id="np-err" class="warn" hidden style="margin-top:10px">' +
+        icon("alert", 16) +
+        "<span>Give the building a name first.</span></div>" +
+        '<button class="btn primary" style="margin-top:12px" data-a="create-project">Create Project</button>'
+      );
+    }
+    if (sh.kind === "floor") {
+      const n = curProj().floors.length + 1;
+      return (
+        shHead(
+          icoSpan("building", "var(--a-accent-soft)", "var(--a-accent)"),
+          "Add Floor",
+          "Name it whatever the building uses",
+        ) +
+        '<span class="flabel">Floor name</span><input class="field" id="fl-name" placeholder="Floor ' +
+        n +
+        '">' +
+        '<div class="chiprow" style="margin-top:8px">' +
+        ["Ground", "Mezzanine", "Roof", "Basement"]
+          .map(
+            (c) => '<button class="choice" data-a="fl-chip" data-s="' + c + '">' + c + "</button>",
+          )
+          .join("") +
+        "</div>" +
+        '<button class="btn primary" style="margin-top:14px" data-a="create-floor">Add Floor</button>'
+      );
+    }
+    if (sh.kind === "menu") {
+      return (
+        shHead(
+          icoSpan("pencil", "var(--a-accent-soft)", "var(--a-accent)"),
+          "Project options",
+          "",
+        ) +
+        '<div class="klist">' +
+        '<button class="krow" data-a="rename-open">' +
+        icon("pencil", 18) +
+        "<span>Rename project</span></button>" +
+        '<button class="krow" data-a="backup-demo">' +
+        icon("copy", 18) +
+        '<span>Download backup</span><span class="km">.walkandplot.json</span></button>' +
+        '<button class="krow" style="color:var(--a-bad)" data-a="proj-delete-open">' +
+        icon("trash", 18) +
+        "<span>Delete project</span></button>" +
+        "</div>"
+      );
+    }
+    if (sh.kind === "rename") {
+      const p = curProj();
+      return (
+        shHead(icoSpan("pencil", "var(--a-accent-soft)", "var(--a-accent)"), "Rename project", "") +
+        '<input class="field" id="rn-name" value="' +
+        esc(p.name) +
+        '">' +
+        '<button class="btn primary" style="margin-top:12px" data-a="rename-save">Save name</button>'
+      );
+    }
+    if (sh.kind === "confirm-project") {
+      const p = curProj();
+      return (
+        shHead(
+          icoSpan("trash", "var(--a-bad-bg)", "var(--a-bad)"),
+          "Delete " + esc(p.name) + "?",
+          "Mapped floors cannot be recovered after this",
+          "sheet-close",
+        ) +
+        '<div class="warn">' +
+        icon("alert", 16) +
+        "<span>A backup file is offered before the delete in the real app (PRD 17).</span></div>" +
+        '<span class="flabel">Type DELETE to confirm</span><input class="field" id="cf-input" autocomplete="off">' +
+        '<button class="btn danger" id="cf-yes" data-a="proj-delete-yes" disabled style="margin-top:12px">Delete project</button>'
+      );
+    }
+    if (sh.kind === "discard") {
+      const fl = S.flow;
+      return (
+        shHead(
+          icoSpan("trash", "var(--a-bad-bg)", "var(--a-bad)"),
+          "Discard this " + (fl && fl.tool === "path" ? "path" : "area") + "?",
+          "You have placed " + (fl ? fl.vs.length : 0) + " corners so far",
+        ) +
+        '<div style="display:flex;gap:8px;margin-top:8px"><button class="btn primary" data-a="discard-keep">Keep tracing</button><button class="btn danger" data-a="discard-yes">Discard</button></div>'
+      );
+    }
+    return "";
+  }
+  function sheetDetail() {
+    const f = curFloor().features.find((x) => x.id === S.sheet.fid);
+    if (!f) return "";
+    const d = S.edd;
+    const T = TYPES[f.subtype];
+    if (f.cat === "path") {
+      let b =
+        '<span class="flabel">Tag this path</span><div class="chiprow">' +
+        PATH_TAGS.map(
+          (t) =>
+            '<button class="choice' +
+            (d.tag === t ? " on" : "") +
+            '" data-a="dchip" data-d="tag:' +
+            t +
+            '">' +
+            TYPES[t].label +
+            "</button>",
+        ).join("") +
+        "</div>" +
+        '<span class="flabel">Width (optional)</span><input class="field" id="dt-width" inputmode="decimal" placeholder="e.g. 3" value="' +
+        esc(d.width) +
+        '">' +
+        '<span class="flabel">Notes (optional)</span><input class="field" id="dt-notes" placeholder="Anything worth remembering" value="' +
+        esc(d.notes) +
+        '">' +
+        '<div style="display:flex;gap:8px;margin-top:16px"><button class="btn" data-a="detail-skip">Skip</button><button class="btn primary" data-a="detail-save">Save</button></div>';
+      return (
+        shHead(
+          tileIco(f.subtype, 42),
+          "Path saved",
+          "Tag it now or skip - editable anytime",
+          "detail-skip",
+        ) + b
+      );
+    }
+    let b =
+      '<span class="flabel">Name</span><input class="field" id="dt-name" placeholder="' +
+      esc(T.label) +
+      '" value="' +
+      esc(d.name) +
+      '">';
+    if (f.subtype === "shop")
+      b +=
+        '<span class="flabel">Shop number (optional)</span><input class="field" id="dt-number" placeholder="e.g. 304" value="' +
+        esc(d.number) +
+        '">';
+    if (f.subtype === "toilet")
+      b += chipsRow(
+        "Gender",
+        "gender",
+        [
+          ["female", "Female"],
+          ["male", "Male"],
+          ["accessible", "Accessible"],
+          ["unisex", "Unisex"],
+        ],
+        d.gender,
+      );
+    if (f.subtype === "entrance")
+      b += chipsRow(
+        "Kind",
+        "kind",
+        [
+          ["main", "Main entrance"],
+          ["entrance", "Entrance"],
+          ["exit", "Exit"],
+          ["emergency", "Emergency exit"],
+          ["staff", "Staff"],
+          ["service", "Service"],
+          ["other", "Other"],
+        ],
+        d.kind,
+      );
+    if (isConn(f.subtype)) {
+      const floors = curProj()
+        .floors.slice()
+        .sort((a, b) => a.order - b.order);
+      b +=
+        '<span class="flabel">Connects: ' +
+        esc(curFloor().name) +
+        ' to</span><div class="chiprow">' +
+        floors
+          .filter((x) => x.id !== curFloor().id)
+          .map(
+            (x) =>
+              '<button class="choice' +
+              (d.toFloorId === x.id ? " on" : "") +
+              '" data-a="dchip" data-d="toFloorId:' +
+              x.id +
+              '">' +
+              esc(x.name) +
+              "</button>",
+          )
+          .join("") +
+        '<button class="choice' +
+        (d.toFloorId === "new" ? " on" : "") +
+        '" data-a="dchip" data-d="toFloorId:new">+ New floor</button></div>';
+      if (d.toFloorId === "new")
+        b +=
+          '<span class="flabel">New floor name</span><input class="field" id="dt-newfloor" placeholder="Floor 5" value="' +
+          esc(d.newFloor) +
+          '">';
+      if (f.subtype === "lift")
+        b += chipsRow(
+          "Kind",
+          "kind",
+          [
+            ["passenger", "Passenger"],
+            ["service", "Service"],
+            ["emergency", "Emergency"],
+            ["other", "Other"],
+          ],
+          d.kind,
+        );
+      else
+        b += chipsRow(
+          "Direction",
+          "direction",
+          [
+            ["up", "Up"],
+            ["down", "Down"],
+            ["both", "Both"],
+          ],
+          d.direction,
+        );
+      if (f.subtype === "stair")
+        b += chipsRow(
+          "Wheelchair accessible",
+          "accessible",
+          [
+            ["yes", "Yes"],
+            ["no", "No"],
+          ],
+          d.accessible,
+        );
+    } else {
+      b += chipsRow(
+        "Access",
+        "access",
+        [
+          ["public", "Public"],
+          ["staff_only", "Staff only"],
+          ["restricted", "Restricted"],
+          ["emergency_only", "Emergency only"],
+        ],
+        d.access,
+      );
+    }
+    b += chipsRow(
+      "Confidence",
+      "conf",
+      [
+        ["high", "High"],
+        ["medium", "Medium"],
+        ["low", "Low"],
+      ],
+      d.conf,
+    );
+    if (d.connect) {
+      const cf = curFloor().features.find((x) => x.id === d.connect);
+      if (cf)
+        b +=
+          '<div class="note" style="margin-top:12px">' +
+          icon("door", 18) +
+          "<span>Connects to <b>" +
+          esc(cf.name || TYPES[cf.subtype].label) +
+          '</b></span><button class="linkbtn" style="margin-left:auto" data-a="dchip" data-d="connect:off">Remove</button></div>';
+    }
+    b +=
+      '<button class="btn" style="margin-top:14px" data-a="photo-stub">' +
+      icon("camera", 18) +
+      "Add photo</button>";
+    b +=
+      '<div style="display:flex;gap:8px;margin-top:10px"><button class="btn" data-a="detail-skip">Skip</button><button class="btn primary" data-a="detail-save">Save details</button></div>';
+    return (
+      shHead(
+        tileIco(f.subtype, 42),
+        S.sheet.fresh ? "Saved - add details" : "Edit details",
+        esc(T.label) + (S.sheet.fresh ? " - optional, skipping is fine" : ""),
+        "detail-skip",
+      ) + b
+    );
+  }
+  function sheetCalibrate() {
+    const floor = curFloor();
+    const paths = floor.features.filter((f) => f.geom === "line");
+    if (!S.calSel || !paths.find((p) => p.id === S.calSel))
+      S.calSel = paths.length ? paths[0].id : null;
+    const sel = paths.find((p) => p.id === S.calSel);
+    let b =
+      '<div class="note">' +
+      icon("info", 18) +
+      "<span>Pick a line whose real length you know. The whole floor rescales to match it.</span></div>";
+    b +=
+      '<span class="flabel">Pick a line</span><div class="klist">' +
+      (paths.length
+        ? paths
+            .map(
+              (p) =>
+                '<button class="krow' +
+                (sel && sel.id === p.id ? " on" : "") +
+                '" data-a="cal-sel" data-id="' +
+                p.id +
+                '">' +
+                tileIco("corridor", 30) +
+                "<span>" +
+                esc(p.name || "Path") +
+                '</span><span class="km">' +
+                fmtLen(floor, pathLen(p.vs)) +
+                "</span></button>",
+            )
+            .join("")
+        : '<p class="tiny">Trace a path first, then calibrate.</p>') +
+      "</div>";
+    b +=
+      '<span class="flabel">Real length of this line</span>' +
+      '<div class="stepper"><input class="field" id="cal-len" inputmode="decimal" placeholder="e.g. 12.5" style="flex:1"><span style="color:var(--a-ink3)">m</span></div>' +
+      '<div class="stepper" style="margin-top:8px"><button class="btn small" data-a="step-plus">+ 1 step</button><span class="cnt" id="cal-cnt">' +
+      (S.calSteps || 0) +
+      '</span><span class="tiny" style="text-align:left;flex:1" id="cal-eq">= ' +
+      ((S.calSteps || 0) * 0.75).toFixed(1) +
+      ' m at 0.75 m per step</span><button class="linkbtn" data-a="cal-use-steps">Use</button></div>' +
+      '<button class="btn primary" style="margin-top:16px" data-a="cal-apply"' +
+      (sel ? "" : " disabled") +
+      ">Apply to Floor</button>";
+    return (
+      shHead(
+        icoSpan("fit", "var(--a-accent-soft)", "var(--a-accent)"),
+        "Set Real Length",
+        "One measurement rescales the whole floor",
+      ) + b
+    );
+  }
+  function sheetExport() {
+    const floor = curFloor(),
+      p = curProj();
+    const geo = geoJSONText(floor, p);
+    S._geo = geo;
+    return (
+      shHead(
+        icoSpan("download", "var(--a-accent-soft)", "var(--a-accent)"),
+        "Download",
+        "Files save to your device",
+      ) +
+      '<div class="klist">' +
+      '<button class="krow" data-a="dl-row">' +
+      icon("download", 18) +
+      "<span>" +
+      esc(floor.name) +
+      ' map file</span><span class="km">.geojson</span></button>' +
+      '<button class="krow" data-a="dl-row">' +
+      icon("download", 18) +
+      "<span>" +
+      esc(p.name) +
+      ' map file</span><span class="km">.geojson</span></button>' +
+      '<button class="krow" data-a="dl-row">' +
+      icon("copy", 18) +
+      "<span>" +
+      esc(p.name) +
+      ' backup</span><span class="km">.walkandplot.json</span></button>' +
+      "</div>" +
+      '<button class="btn" style="margin-top:12px" data-a="export-preview">' +
+      icon("eye", 18) +
+      '<span id="epl">Preview GeoJSON</span></button>' +
+      '<button class="btn" style="margin-top:8px" data-a="copy-geo">' +
+      icon("copy", 18) +
+      "Copy floor GeoJSON</button>" +
+      '<pre class="geopre" id="geopre" hidden>' +
+      esc(geo) +
+      "</pre>" +
+      '<p class="tiny" style="margin-top:10px">Coordinates are local floor ' +
+      unitOf(floor) +
+      " - never labelled as GPS.<br>Prototype: downloads are stubbed; the preview is the real serializer output.</p>"
+    );
+  }
+  function projectGeo(p) {
+    const floors = p.floors.slice().sort((a, b) => a.order - b.order);
+    let feats = [];
+    floors.forEach((fl) => {
+      feats = feats.concat(JSON.parse(geoJSONText(fl, p)).features);
+    });
+    return JSON.stringify(
+      {
+        type: "FeatureCollection",
+        properties: {
+          app: "walk-and-plot",
+          schemaVersion: 2,
+          project: p.name,
+          projectId: p.id,
+          exportedAt: new Date().toISOString(),
+          floors: floors.map((x) => ({ floorId: x.id, displayName: x.name, order: x.order })),
+          coordinateSystem: {
+            type: "local",
+            unit: "meters",
+            origin: "first-plotted-point-per-floor",
+            calibrated: floors.every(isCal),
+          },
+        },
+        features: feats,
+      },
+      null,
+      2,
+    );
+  }
+  function desktopHTML() {
+    const p = S.projects.find((x) => x.id === "p1") || S.projects[0];
+    if (!p)
+      return '<div class="desktop"><div class="dbody"><main class="dmain"><p class="tiny">No projects yet - create one on the phone.</p></main></div></div>';
+    const sorted = p.floors.slice().sort((a, b) => a.order - b.order);
+    const fl = sorted.reduce(
+      (a, f) => (f.features.length > (a ? a.features.length : 0) ? f : a),
+      null,
+    );
+    const geo = fl ? geoJSONText(fl, p) : "{}";
+    return (
+      '<div class="desktop">' +
+      '<div class="dbar"><span class="ddots"><i></i><i></i><i></i></span><div class="durl">walkandplot.app/projects/' +
+      esc(p.id) +
+      "</div></div>" +
+      '<div class="dbody"><aside class="dside"><div class="dbrand"><span class="bm">' +
+      icon("logo", 15) +
+      "</span>Walk &amp; Plot</div>" +
+      '<div class="dsect">Projects</div>' +
+      S.projects
+        .map(
+          (x) =>
+            '<button class="dproj' +
+            (x.id === p.id ? " on" : "") +
+            '">' +
+            esc(x.name) +
+            "</button>",
+        )
+        .join("") +
+      '</aside><main class="dmain">' +
+      '<div class="dbanner">' +
+      icon("monitor", 22) +
+      "<div><b>Capture is designed for mobile.</b><span>Tracing and placing happen on the phone - everything here is view and edit.</span></div></div>" +
+      '<div class="dhead"><h2>' +
+      esc(p.name) +
+      '</h2><span class="dm">' +
+      esc(p.address || "") +
+      " - " +
+      p.floors.length +
+      " floors</span>" +
+      '<button class="btn small primary" data-a="dl-row">' +
+      icon("download", 15) +
+      "Download GeoJSON</button>" +
+      '<button class="btn small" data-a="backup-demo">' +
+      icon("copy", 15) +
+      "Backup</button></div>" +
+      '<div class="dcols"><div><div class="dsect" style="padding:0 0 8px">Floors</div>' +
+      sorted
+        .map(
+          (f) =>
+            '<div class="dfloor"><span>' +
+            esc(f.name) +
+            "</span>" +
+            statusChip(f.status) +
+            "</div>",
+        )
+        .join("") +
+      '</div><div class="dmap"><div class="dmaptitle" style="display:flex;align-items:center;gap:8px">' +
+      (fl ? esc(fl.name) + " - preview" : "Preview") +
+      '<span style="margin-left:auto;display:inline-flex;gap:4px">' +
+      '<button class="jchip' +
+      (!S.desk3 ? " on" : "") +
+      '" data-a="desk-2d">2D</button>' +
+      '<button class="jchip' +
+      (S.desk3 ? " on" : "") +
+      '" data-a="desk-3d">3D</button></span></div>' +
+      (S.desk3
+        ? '<div id="v3d" style="height:320px;position:relative;overflow:hidden"></div>'
+        : fl
+          ? staticMapSvg(fl, 560, 300)
+          : "") +
+      "</div></div>" +
+      '<button class="linkbtn" style="margin-top:12px" data-a="export-preview-d">Preview GeoJSON</button>' +
+      '<pre class="geopre" id="dgeopre" hidden>' +
+      esc(geo) +
+      "</pre>" +
+      "</main></div></div>"
+    );
+  }
+
+  /* ================= toast / history / save ================= */
+  let toastTimer = null;
+  function toast(msg, actLabel, actFn) {
+    const t = document.getElementById("toast");
+    if (!t) return;
+    t.innerHTML =
+      esc(msg) + (actLabel ? '<button class="tact" id="tact">' + esc(actLabel) + "</button>" : "");
+    if (actLabel)
+      document.getElementById("tact").onclick = () => {
+        if (actFn) actFn();
+        hideToast();
+      };
+    t.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(hideToast, actLabel ? 4200 : 1900);
+  }
+  function hideToast() {
+    const t = document.getElementById("toast");
+    if (t) t.classList.remove("show");
+  }
+  function savedPulse() {
+    const d = document.getElementById("savedot");
+    if (!d) return;
+    d.innerHTML = '<i style="background:var(--a-warn)"></i>Saving';
+    setTimeout(() => {
+      const x = document.getElementById("savedot");
+      if (x) x.innerHTML = "<i></i>Saved";
+    }, 650);
+  }
+  function pushHist() {
+    const floor = curFloor();
+    if (!floor) return;
+    const h = S.hist;
+    h.stack = h.stack.slice(0, h.idx + 1);
+    h.stack.push({
+      fid: floor.id,
+      data: JSON.stringify({ features: floor.features, scale: floor.scale }),
+    });
+    if (h.stack.length > 100) h.stack.shift();
+    h.idx = h.stack.length - 1;
+  }
+  function histGo(d) {
+    const h = S.hist,
+      ni = h.idx + d;
+    if (ni < 0 || ni >= h.stack.length) return;
+    h.idx = ni;
+    const snap = h.stack[h.idx];
+    const floor = curFloor();
+    if (floor && floor.id === snap.fid) {
+      const st = JSON.parse(snap.data);
+      floor.features = st.features;
+      floor.scale = st.scale;
+      if (S.sel && !floor.features.find((f) => f.id === S.sel)) S.sel = null;
+    }
+    render();
+  }
+
+  /* ================= capture logic ================= */
+  function draftOf(f) {
+    return {
+      tag: f.subtype,
+      name: f.name || "",
+      number: (f.props && f.props.shopNumber) || "",
+      gender: (f.props && f.props.gender) || "",
+      kind: (f.props && f.props.kind) || "",
+      direction: (f.props && f.props.direction) || "",
+      accessible: (f.props && f.props.accessible) || "",
+      access: f.access || "public",
+      conf: f.confidence || "high",
+      toFloorId: (f.props && f.props.toFloorId) || "",
+      newFloor: "",
+      connect: (f.props && f.props.connect) || null,
+      notes: f.notes || "",
+      width: (f.props && f.props.width) || "",
+    };
+  }
+  function cleanVs(vs) {
+    return vs.map((v) => ({ x: Math.round(v.x * 100) / 100, y: Math.round(v.y * 100) / 100 }));
+  }
+  function applyDoorLink(f) {
+    const floor = curFloor();
+    const c = f.geom === "point" ? f.p : centroid(f.vs);
+    let best = null,
+      bd = 2.5;
+    floor.features.forEach((p) => {
+      if (p.geom !== "line") return;
+      for (let i = 0; i < p.vs.length - 1; i++) {
+        const a = p.vs[i],
+          b = p.vs[i + 1];
+        const dx = b.x - a.x,
+          dy = b.y - a.y,
+          l2 = dx * dx + dy * dy || 1;
+        let t = ((c.x - a.x) * dx + (c.y - a.y) * dy) / l2;
+        t = clamp(t, 0, 1);
+        const q = { x: a.x + t * dx, y: a.y + t * dy };
+        const d = dist(f.geom === "point" ? f.p : closestOnRing(f.vs, q), q);
+        if (d < bd) {
+          bd = d;
+          best = { pid: p.id, d: d };
+        }
+      }
+    });
+    if (best && best.d > 0.15 && best.d < 2.5) f.props.connect = best.pid;
+  }
+  function plotTap(w) {
+    const fl = S.flow;
+    const p = effPoint(w);
+    const valid = fl.tool === "path" ? fl.vs.length >= 2 : fl.vs.length >= 3;
+    if (valid && dist(p, fl.vs[0]) * V.k < 14) {
+      finishGesture();
+      return;
+    }
+    if (fl.vs.length && dist(p, fl.vs[fl.vs.length - 1]) * V.k < 6) return;
+    fl.vs.push({ x: p.x, y: p.y });
+    if (p.kind) {
+      S.snapFlash = { x: p.x, y: p.y, kind: p.kind };
+      clearTimeout(S._sfT);
+      S._sfT = setTimeout(() => {
+        S.snapFlash = null;
+        paintMap();
+      }, 650);
+      if (p.kind === "segment") toast("Snapped onto a path - they will connect");
+    }
+    paintMap();
+  }
+  function finishGesture() {
+    const fl = S.flow,
+      floor = curFloor();
+    const n = fl.vs.length;
+    if (fl.tool === "path" && n < 2) return;
+    if (fl.tool === "place" && n < 3) return;
+    if (fl.tool === "path") {
+      const f = F(uid(), "corridor", null, { vs: cleanVs(fl.vs) });
+      floor.features.push(f);
+      S.flow = { tool: "path", subtype: "corridor", stage: "plot", vs: [] };
+      pushHist();
+      savedPulse();
+      S.edd = draftOf(f);
+      S.sheet = { kind: "detail-path", fid: f.id };
+      toast("Path saved");
+    } else {
+      const f = F(uid(), fl.subtype, null, { vs: cleanVs(fl.vs) });
+      applyDoorLink(f);
+      floor.features.push(f);
+      pushHist();
+      savedPulse();
+      S.flow = null;
+      S.edd = draftOf(f);
+      S.sheet = { kind: "detail", fid: f.id, fresh: true };
+      toast(TYPES[fl.subtype].label + " saved");
+    }
+    render();
+  }
+  function placePoint(w) {
+    const fl = S.flow,
+      floor = curFloor();
+    const p = effPoint(w);
+    const f = F(uid(), fl.subtype, null, {
+      p: { x: Math.round(p.x * 100) / 100, y: Math.round(p.y * 100) / 100 },
+    });
+    applyDoorLink(f);
+    floor.features.push(f);
+    pushHist();
+    savedPulse();
+    S.flow = null;
+    S.edd = draftOf(f);
+    S.sheet = { kind: "detail", fid: f.id, fresh: true };
+    toast(TYPES[fl.subtype].label + " saved" + (f.props.connect ? " - door linked" : ""));
+    render();
+  }
+  function insertCorner(mh) {
+    const floor = curFloor();
+    const f = floor.features.find((x) => x.id === mh.fid);
+    if (!f || !f.vs) return;
+    const n = f.vs.length;
+    const a = f.vs[mh.i],
+      b = f.vs[(mh.i + 1) % n];
+    f.vs.splice(mh.i + 1, 0, { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+    pushHist();
+    savedPulse();
+    paintMap();
+  }
+  function deleteSel() {
+    const floor = curFloor();
+    const i = floor.features.findIndex((f) => f.id === S.sel);
+    if (i < 0) return;
+    const f = floor.features.splice(i, 1)[0];
+    S.sel = null;
+    pushHist();
+    savedPulse();
+    render();
+    toast("Deleted " + (f.name || TYPES[f.subtype].label), "Undo", () => {
+      if (curFloor() !== floor) return;
+      floor.features.splice(Math.min(i, floor.features.length), 0, f);
+      pushHist();
+      savedPulse();
+      render();
+    });
+  }
+  function hitFeature(mx, my) {
+    const floor = curFloor();
+    const tol = 10 / V.k;
+    const arr = floor.features;
+    for (let i = arr.length - 1; i >= 0; i--) {
+      const f = arr[i];
+      if (f.geom === "point" && dist(f.p, { x: mx, y: my }) < 14 / V.k) return f;
+    }
+    for (let i = arr.length - 1; i >= 0; i--) {
+      const f = arr[i];
+      if (f.geom === "poly" && PIP(mx, my, f.vs)) return f;
+      if (f.geom === "line") {
+        for (let j = 0; j < f.vs.length - 1; j++) {
+          if (ptSegDist({ x: mx, y: my }, f.vs[j], f.vs[j + 1]) < tol) return f;
+        }
+      }
+    }
+    return null;
+  }
+
+  /* ================= canvas binding ================= */
+  function bindCanvas() {
+    const svg = document.getElementById("mapsvg");
+    if (!svg) return;
+    let ptr = null;
+    const rectOf = () => svg.getBoundingClientRect();
+    const worldOf = (e) => {
+      const r = rectOf();
+      return { x: (e.clientX - r.left - V.tx) / V.k, y: (e.clientY - r.top - V.ty) / V.k };
+    };
+    svg.onpointerdown = (e) => {
+      svg.setPointerCapture(e.pointerId);
+      ptr = {
+        x: e.clientX,
+        y: e.clientY,
+        moved: false,
+        vh:
+          e.target.dataset && e.target.dataset.vh !== undefined
+            ? { fid: e.target.dataset.fid, i: +e.target.dataset.vh }
+            : null,
+        mh:
+          e.target.dataset && e.target.dataset.mh !== undefined
+            ? { fid: e.target.dataset.fid, i: +e.target.dataset.mh }
+            : null,
+      };
+    };
+    svg.onpointermove = (e) => {
+      const w = worldOf(e);
+      if (ptr && ptr.moved) {
+        if (ptr.vh) {
+          const f = curFloor().features.find((x) => x.id === ptr.vh.fid);
+          if (f && f.vs) {
+            const p = { x: Math.round(w.x * 10) / 10, y: Math.round(w.y * 10) / 10 };
+            if (f.geom === "point") f.p = p;
+            else f.vs[ptr.vh.i] = p;
+          }
+          ptr.vhMoved = true;
+        } else {
+          V.tx += e.movementX;
+          V.ty += e.movementY;
+          S.pointerM = null;
+          S.snapCand = null;
+        }
+        paintMap();
+        return;
+      }
+      if (S.flow && S.flow.stage === "plot") {
+        S.pointerM = w;
+        S.snapCand = snapPose(effPoint(w));
+        paintMap();
+      }
+    };
+    svg.onpointerup = (e) => {
+      const w = worldOf(e);
+      const tap = ptr && !ptr.moved;
+      const vh = ptr && ptr.vh,
+        vhMoved = ptr && ptr.vhMoved,
+        mh = ptr && ptr.mh;
+      ptr = null;
+      if (vh && vhMoved) {
+        pushHist();
+        savedPulse();
+        return;
+      }
+      if (!tap) return;
+      S.snapCand = null;
+      if (mh) {
+        insertCorner(mh);
+        return;
+      }
+      if (S.flow && S.flow.stage === "plot") {
+        plotTap(w);
+        return;
+      }
+      if (S.flow && S.flow.stage === "place") {
+        placePoint(w);
+        return;
+      }
+      const f = hitFeature(w.x, w.y);
+      S.sel = f ? f.id : null;
+      render();
+    };
+    svg.onpointercancel = () => {
+      ptr = null;
+    };
+    svg.onpointerleave = () => {
+      S.pointerM = null;
+      S.snapCand = null;
+      if (S.flow) paintMap();
+    };
+    svg.onwheel = (e) => {
+      e.preventDefault();
+      const r = rectOf();
+      zoomAt(e.clientX - r.left, e.clientY - r.top, e.deltaY < 0 ? 1.12 : 0.9);
+    };
+    svg.ondblclick = (e) => {
+      const r = rectOf();
+      zoomAt(e.clientX - r.left, e.clientY - r.top, 1.5);
+    };
+  }
+
+  /* ================= 3D view (hand-rolled orthographic SVG) ================= */
+  const V3DEF = { yaw: -0.65, pitch: 0.52, zoom: 1, focus: "all" };
+  function stopRot() {
+    if (S._rot) {
+      clearInterval(S._rot);
+      S._rot = null;
+    }
+  }
+  function startRot() {
+    stopRot();
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    S._rot = setInterval(() => {
+      S.v3.yaw += 0.004;
+      render3D();
+    }, 40);
+  }
+  function render3D() {
+    const host = document.getElementById("v3d");
+    if (!host) {
+      stopRot();
+      return;
+    }
+    const p = curProj();
+    if (!p) {
+      host.innerHTML = "";
+      return;
+    }
+    const floors = p.floors.slice().sort((a, b) => a.order - b.order);
+    if (!floors.length) {
+      host.innerHTML = '<p class="tiny" style="padding-top:40px">No floors yet</p>';
+      return;
+    }
+    const W = host.clientWidth || 390,
+      H = host.clientHeight || 520;
+    const GAP = 3.2,
+      SLAB = 0.18,
+      WALL = 1.35,
+      PATHW = 0.55;
+    const v = S.v3;
+    const cy = Math.cos(v.yaw),
+      syy = Math.sin(v.yaw),
+      cp = Math.cos(v.pitch),
+      sp = Math.sin(v.pitch);
+    let pj = { k: 1, cx: 0, cy: 0 };
+    function proj(q) {
+      const xr = q.x * cy - q.y * syy,
+        yr = q.x * syy + q.y * cy;
+      return [xr * pj.k + pj.cx, (yr * cp - q.z * sp) * pj.k + pj.cy, yr * sp - q.z * cp];
+    }
+    const active = v.focus === "all" ? S.fid : v.focus;
+    const defs = [];
+    const bnd = { x0: 1e9, x1: -1e9, y0: 1e9, y1: -1e9, z0: 1e9, z1: -1e9 };
+    function addDef(pts, fill, stroke, sw, op) {
+      defs.push({ pts: pts, fill: fill, stroke: stroke, sw: sw, op: op });
+      pts.forEach((q) => {
+        bnd.x0 = Math.min(bnd.x0, q.x);
+        bnd.x1 = Math.max(bnd.x1, q.x);
+        bnd.y0 = Math.min(bnd.y0, q.y);
+        bnd.y1 = Math.max(bnd.y1, q.y);
+        bnd.z0 = Math.min(bnd.z0, q.z);
+        bnd.z1 = Math.max(bnd.z1, q.z);
+      });
+    }
+    floors.forEach((fl) => {
+      const z0 = (fl.order - floors[0].order) * GAP,
+        zt = z0 + SLAB;
+      const g = fl.id === active ? 1 : 0.18;
+      let x0 = 1e9,
+        x1 = -1e9,
+        y0 = 1e9,
+        y1 = -1e9,
+        has = false;
+      fl.features.forEach((f) => {
+        if (f.geom === "point") {
+          has = true;
+          x0 = Math.min(x0, f.p.x);
+          x1 = Math.max(x1, f.p.x);
+          y0 = Math.min(y0, f.p.y);
+          y1 = Math.max(y1, f.p.y);
+        } else
+          f.vs.forEach((vv) => {
+            has = true;
+            x0 = Math.min(x0, vv.x);
+            x1 = Math.max(x1, vv.x);
+            y0 = Math.min(y0, vv.y);
+            y1 = Math.max(y1, vv.y);
+          });
+      });
+      if (!has) {
+        x0 = -0.5;
+        x1 = 4.5;
+        y0 = -0.5;
+        y1 = 4.5;
+      }
+      x0 -= 0.7;
+      x1 += 0.7;
+      y0 -= 0.7;
+      y1 += 0.7;
+      addDef(
+        [
+          { x: x0, y: y0, z: zt },
+          { x: x1, y: y0, z: zt },
+          { x: x1, y: y1, z: zt },
+          { x: x0, y: y1, z: zt },
+        ],
+        "#FFFFFF",
+        "#E2E2E8",
+        1,
+        0.98 * g,
+      );
+      addDef(
+        [
+          { x: x0, y: y0, z: z0 },
+          { x: x1, y: y0, z: z0 },
+          { x: x1, y: y0, z: zt },
+          { x: x0, y: y0, z: zt },
+        ],
+        "#E3E3EB",
+        null,
+        0,
+        g,
+      );
+      addDef(
+        [
+          { x: x0, y: y1, z: z0 },
+          { x: x1, y: y1, z: z0 },
+          { x: x1, y: y1, z: zt },
+          { x: x0, y: y1, z: zt },
+        ],
+        "#EDEDF3",
+        null,
+        0,
+        g,
+      );
+      addDef(
+        [
+          { x: x0, y: y0, z: z0 },
+          { x: x0, y: y1, z: z0 },
+          { x: x0, y: y1, z: zt },
+          { x: x0, y: y0, z: zt },
+        ],
+        "#E9E9F0",
+        null,
+        0,
+        g,
+      );
+      addDef(
+        [
+          { x: x1, y: y0, z: z0 },
+          { x: x1, y: y1, z: z0 },
+          { x: x1, y: y1, z: zt },
+          { x: x1, y: y0, z: zt },
+        ],
+        "#E0E0E8",
+        null,
+        0,
+        g,
+      );
+      fl.features.forEach((f) => {
+        const fg = fgOf(f.subtype),
+          bg = bgOf(f.subtype);
+        if (f.geom === "poly") {
+          addDef(
+            f.vs.map((q) => ({ x: q.x, y: q.y, z: zt + 0.02 })),
+            bg,
+            fg,
+            1,
+            0.72 * g,
+          );
+          const n = f.vs.length;
+          for (let i = 0; i < n; i++) {
+            const a = f.vs[i],
+              b = f.vs[(i + 1) % n];
+            addDef(
+              [
+                { x: a.x, y: a.y, z: zt },
+                { x: b.x, y: b.y, z: zt },
+                { x: b.x, y: b.y, z: zt + WALL },
+                { x: a.x, y: a.y, z: zt + WALL },
+              ],
+              fg,
+              null,
+              0,
+              0.32 * g,
+            );
+          }
+        } else if (f.geom === "line") {
+          for (let i = 0; i < f.vs.length - 1; i++) {
+            const a = f.vs[i],
+              b = f.vs[i + 1];
+            const dx = b.x - a.x,
+              dy = b.y - a.y,
+              l = Math.hypot(dx, dy) || 1;
+            const nx = ((-dy / l) * PATHW) / 2,
+              ny = ((dx / l) * PATHW) / 2;
+            addDef(
+              [
+                { x: a.x + nx, y: a.y + ny, z: zt + 0.02 },
+                { x: a.x - nx, y: a.y - ny, z: zt + 0.02 },
+                { x: b.x - nx, y: b.y - ny, z: zt + 0.02 },
+                { x: b.x + nx, y: b.y + ny, z: zt + 0.02 },
+              ],
+              fg,
+              null,
+              0,
+              0.9 * g,
+            );
+          }
+        }
+      });
+    });
+    // fit: project the world bounding box corners with unit scale, then scale to viewport
+    const cs = [];
+    [bnd.x0, bnd.x1].forEach((x) =>
+      [bnd.y0, bnd.y1].forEach((y) =>
+        [bnd.z0, bnd.z1].forEach((z) => cs.push(proj({ x: x, y: y, z: z }))),
+      ),
+    );
+    const xs = cs.map((c) => c[0]),
+      ys = cs.map((c) => c[1]);
+    const mnx = Math.min.apply(null, xs),
+      mxx = Math.max.apply(null, xs);
+    const mny = Math.min.apply(null, ys),
+      mxy = Math.max.apply(null, ys);
+    const k =
+      Math.min((W - 36) / Math.max(mxx - mnx, 1), (H - 36) / Math.max(mxy - mny, 1)) * v.zoom;
+    pj = { k: k, cx: (W - (mnx + mxx) * k) / 2, cy: (H - (mny + mxy) * k) / 2 };
+    const faces = defs
+      .map((d) => {
+        const P = d.pts.map(proj);
+        const dpth = P.reduce((s, q) => s + q[2], 0) / P.length;
+        return {
+          d: dpth,
+          s:
+            '<polygon points="' +
+            P.map((q) => q[0].toFixed(1) + "," + q[1].toFixed(1)).join(" ") +
+            '" fill="' +
+            d.fill +
+            '"' +
+            (d.stroke
+              ? ' stroke="' + d.stroke + '" stroke-width="' + d.sw + '" stroke-linejoin="round"'
+              : "") +
+            (d.op < 1 ? ' fill-opacity="' + d.op.toFixed(2) + '"' : "") +
+            "/>",
+        };
+      })
+      .sort((a, b) => b.d - a.d);
+    // pins, junctions and labels drawn on top (annotations, not geometry)
+    let tops = "";
+    floors.forEach((fl) => {
+      const z0 = (fl.order - floors[0].order) * GAP,
+        zt = z0 + SLAB;
+      const g = fl.id === active ? 1 : 0.25;
+      fl.features.forEach((f) => {
+        if (f.geom !== "point") return;
+        const fg = fgOf(f.subtype);
+        const b = proj({ x: f.p.x, y: f.p.y, z: zt }),
+          tp = proj({ x: f.p.x, y: f.p.y, z: zt + 1.05 });
+        tops +=
+          '<line x1="' +
+          b[0].toFixed(1) +
+          '" y1="' +
+          b[1].toFixed(1) +
+          '" x2="' +
+          tp[0].toFixed(1) +
+          '" y2="' +
+          tp[1].toFixed(1) +
+          '" stroke="' +
+          fg +
+          '" stroke-width="2" opacity="' +
+          g +
+          '"/>';
+        tops +=
+          '<circle cx="' +
+          tp[0].toFixed(1) +
+          '" cy="' +
+          tp[1].toFixed(1) +
+          '" r="4.5" fill="' +
+          fg +
+          '" stroke="#fff" stroke-width="1.6" opacity="' +
+          g +
+          '"/>';
+        if (f.name && g === 1) {
+          tops +=
+            '<text x="' +
+            tp[0].toFixed(1) +
+            '" y="' +
+            (tp[1] - 8).toFixed(1) +
+            '" text-anchor="middle" font-size="11" font-weight="600" font-family="Instrument Sans,sans-serif" fill="' +
+            fg +
+            '" stroke="#FBFBF9" stroke-width="3" paint-order="stroke">' +
+            esc(f.name) +
+            "</text>";
+        }
+      });
+      if (g === 1) {
+        junctionPoints(fl).forEach((j) => {
+          const q = proj({ x: j.x, y: j.y, z: zt + 0.04 });
+          tops +=
+            '<circle cx="' +
+            q[0].toFixed(1) +
+            '" cy="' +
+            q[1].toFixed(1) +
+            '" r="3.2" fill="#4F46E5" stroke="#fff" stroke-width="1.4"/>';
+        });
+      }
+    });
+    host.innerHTML =
+      '<svg width="100%" height="100%" viewBox="0 0 ' +
+      W +
+      " " +
+      H +
+      '" style="display:block;background:#FBFBF9;border-radius:2px">' +
+      faces.map((f) => f.s).join("") +
+      tops +
+      "</svg>";
+  }
+  function bindV3() {
+    const host = document.getElementById("v3d");
+    if (!host) return;
+    let drag = null;
+    host.onpointerdown = (e) => {
+      host.setPointerCapture(e.pointerId);
+      drag = { x: e.clientX, y: e.clientY };
+      stopRot();
+    };
+    host.onpointermove = (e) => {
+      if (!drag) return;
+      S.v3.yaw += (e.clientX - drag.x) * 0.008;
+      S.v3.pitch = clamp(S.v3.pitch - (e.clientY - drag.y) * 0.006, 0.05, 1.4);
+      drag = { x: e.clientX, y: e.clientY };
+      render3D();
+    };
+    host.onpointerup = () => {
+      drag = null;
+    };
+    host.onpointercancel = () => {
+      drag = null;
+    };
+    host.onwheel = (e) => {
+      e.preventDefault();
+      S.v3.zoom = clamp(S.v3.zoom * (e.deltaY < 0 ? 1.1 : 0.9), 0.45, 3);
+      render3D();
+    };
+  }
+
+  /* ================= render ================= */
+  function render() {
+    const stage = document.getElementById("stage");
+    const key = notesKey();
+    renderNav(key);
+    renderNotes(key);
+    if (S.screen === "desktop") {
+      stage.innerHTML = desktopHTML();
+      if (S.desk3)
+        requestAnimationFrame(() => {
+          render3D();
+          bindV3();
+          startRot();
+        });
+      return;
+    }
+    let inner;
+    if (S.screen === "firstrun") inner = vFirstrun();
+    else if (S.screen === "project") inner = vProject();
+    else if (S.screen === "map") inner = vMap();
+    else if (S.screen === "floordone") inner = vFloorDone();
+    else inner = vDashboard();
+    stage.innerHTML = phoneShell(inner, S.sheet ? sheetHTML() : "");
+    if (S.screen === "map") {
+      requestAnimationFrame(() => {
+        if (S.v3 && S.v3.on) {
+          render3D();
+          bindV3();
+        } else {
+          if (!V.init) fitMap();
+          else paintMap();
+          bindCanvas();
+        }
+      });
+    }
+  }
+
+  /* ================= nav + notes ================= */
+  function toMap(fid, pid) {
+    ensureDemo();
+    S.pid = pid || (S.pid && S.projects.find((x) => x.id === S.pid) ? S.pid : "p1");
+    S.fid = fid || "f3";
+    S.screen = "map";
+    S.flow = null;
+    S.sheet = null;
+    S.sel = null;
+    S.edd = null;
+    S.calSel = null;
+    S.hist = { stack: [], idx: -1 };
+    V.init = false;
+  }
+  const NAV = [
+    {
+      k: "firstrun",
+      l: "First run",
+      f: () => {
+        S = freshState();
+        S.projects = [];
+        S.screen = "firstrun";
+      },
+    },
+    {
+      k: "projects",
+      l: "Projects",
+      f: () => {
+        ensureDemo();
+        S.screen = "dashboard";
+        S.sheet = null;
+        S.flow = null;
+      },
+    },
+    {
+      k: "newproject",
+      l: "New project",
+      f: () => {
+        ensureDemo();
+        S.screen = "dashboard";
+        S.sheet = { kind: "new" };
+      },
+    },
+    {
+      k: "project",
+      l: "Project",
+      f: () => {
+        ensureDemo();
+        S.pid = "p1";
+        S.screen = "project";
+        S.sheet = null;
+      },
+    },
+    {
+      k: "workspace",
+      l: "Workspace",
+      f: () => {
+        toMap("f3", "p1");
+      },
+    },
+    {
+      k: "view3d",
+      l: "3D view",
+      f: () => {
+        toMap("f3", "p1");
+        S.v3.on = true;
+      },
+    },
+    {
+      k: "tracepath",
+      l: "Trace path",
+      f: () => {
+        toMap("f3", "p1");
+        S.flow = {
+          tool: "path",
+          subtype: "corridor",
+          stage: "plot",
+          vs: [
+            { x: 0.8, y: 17 },
+            { x: 0.8, y: 11.6 },
+          ],
+        };
+      },
+    },
+    {
+      k: "plotshop",
+      l: "Trace area",
+      f: () => {
+        toMap("f3", "p1");
+        S.flow = {
+          tool: "place",
+          subtype: "shop",
+          stage: "plot",
+          vs: [
+            { x: 2.8, y: 8.8 },
+            { x: 2.8, y: 5.8 },
+            { x: 6, y: 5.8 },
+          ],
+        };
+      },
+    },
+    {
+      k: "placestair",
+      l: "Place stair",
+      f: () => {
+        toMap("f3", "p1");
+        S.flow = { tool: "place", subtype: "stair", stage: "place", vs: [] };
+      },
+    },
+    {
+      k: "detail",
+      l: "Detail sheet",
+      f: () => {
+        toMap("f3", "p1");
+        const f = curFloor().features.find((x) => x.id === "s4");
+        S.edd = draftOf(f);
+        S.sheet = { kind: "detail", fid: "s4" };
+      },
+    },
+    {
+      k: "pathtag",
+      l: "Path tag",
+      f: () => {
+        toMap("f3", "p1");
+        const f = curFloor().features.find((x) => x.id === "c3");
+        S.edd = draftOf(f);
+        S.sheet = { kind: "detail-path", fid: "c3" };
+      },
+    },
+    {
+      k: "connect",
+      l: "Connector",
+      f: () => {
+        toMap("f3", "p1");
+        const f = curFloor().features.find((x) => x.id === "st3");
+        S.edd = draftOf(f);
+        S.sheet = { kind: "detail", fid: "st3" };
+      },
+    },
+    {
+      k: "calibrate",
+      l: "Calibrate",
+      f: () => {
+        toMap("f3", "p1");
+        S.calSel = "c3";
+        S.sheet = { kind: "calibrate" };
+      },
+    },
+    {
+      k: "editmode",
+      l: "Edit mode",
+      f: () => {
+        toMap("f3", "p1");
+        S.sel = "s3";
+      },
+    },
+    {
+      k: "finish",
+      l: "Finish",
+      f: () => {
+        toMap("f3", "p1");
+        S.sheet = { kind: "finish" };
+      },
+    },
+    {
+      k: "floordone",
+      l: "Floor done",
+      f: () => {
+        toMap("f3", "p1");
+        S.screen = "floordone";
+      },
+    },
+    {
+      k: "download",
+      l: "Download",
+      f: () => {
+        toMap("f3", "p1");
+        S.sheet = { kind: "export" };
+      },
+    },
+    {
+      k: "desktop",
+      l: "Desktop",
+      f: () => {
+        ensureDemo();
+        S.screen = "desktop";
+      },
+    },
+  ];
+  function navTo(k) {
+    const n = NAV.find((x) => x.k === k);
+    if (!n) return;
+    hideToast();
+    n.f();
+    render();
+  }
+  function renderNav(active) {
+    const el = document.getElementById("navChips");
+    if (!el) return;
+    el.innerHTML = NAV.map(
+      (n) =>
+        '<button class="jchip' +
+        (n.k === active ? " on" : "") +
+        '" data-nav="' +
+        n.k +
+        '">' +
+        n.l +
+        "</button>",
+    ).join("");
+  }
+  const NOTES = {
+    firstrun: {
+      t: "First run - no account",
+      items: [
+        "<b>No login in V2.</b> Auth returns only with cloud sync; the app is fully static with zero server calls (PRD 9, 27).",
+        "First run is one screen with one action; returning users land straight on the project list.",
+        "The dot grid is the brand motif - it returns as the mapping canvas background.",
+      ],
+    },
+    projects: {
+      t: "Projects",
+      items: [
+        "Everything is local: Dexie over IndexedDB; nothing mapping-related lives only in React state (PRD 29).",
+        "Row meta shows floors, mapped count and last edit - it sets the expectation that data lives on this device.",
+        "Import backup lives here; the install banner shows once per visit until accepted or dismissed twice (PRD 33).",
+      ],
+    },
+    newproject: {
+      t: "New project form",
+      items: [
+        "Minimum form: name required, address optional, starting floor name optional (PRD 10).",
+        "Real build: react-hook-form + the same Zod schema that validates backup import (PRD 27, 28).",
+      ],
+    },
+    project: {
+      t: "Project overview",
+      items: [
+        "Floors sort by <b>order</b>, never list position; drag to reorder in the real build (PRD 11).",
+        "The backup reminder is non-blocking and dismissible - never a modal (PRD 30).",
+        "Download icon opens the export sheet; the pencil opens rename, backup and delete.",
+      ],
+    },
+    newfloor: {
+      t: "Floors",
+      items: [
+        "Names are free-form (B2, Ground, Mezzanine); only <b>order</b> encodes vertical position (PRD 11).",
+        "Floor status is just mapping | completed - no draft ceremony in V2.",
+      ],
+    },
+    delete: {
+      t: "Destructive actions",
+      items: [
+        "Deleting a single object: no dialog - an undo toast instead (PRD 17).",
+        "Deleting a floor or project: confirmation, typed for mapped projects, plus an automatic backup offer (PRD 17, 30).",
+      ],
+    },
+    workspace: {
+      t: "Mapping workspace",
+      items: [
+        "Canvas is the screen; tools sit in the thumb zone, 48px minimum targets (PRD 12, 24).",
+        "Top bar: back (autosaves), Saved pill, unit chip (m or units), undo and redo always visible.",
+        "<b>Trace Path</b> and <b>Add Place</b> are the only capture tools - junctions and doors emerge from snapping.",
+        "Uncalibrated floors show a dismissible Set Real Length tip; calibration never blocks mapping (PRD 14).",
+        "Gestures per PRD 13: tool inactive pan, tool active draw, two fingers zoom/pan - the prototype uses tap/drag for mouse parity.",
+        "The tools stack carries zoom, fit and a <b>3D toggle</b> - view modes never mix with capture tools.",
+      ],
+    },
+    tracepath: {
+      t: "Trace Path",
+      items: [
+        "Tap adds corners; tap the green start dot (or Done) finishes; minimum 2 points (PRD 15, AC-04).",
+        "The tool stays active after saving - trace the next corridor without re-selecting.",
+        "Post-capture tag sheet: Corridor / Hallway / Open area / Ramp - optional, default Corridor (PRD 15).",
+        "Snapping priority: endpoints, then segments, then grid - with a visible indicator (PRD 13).",
+        "The dashed rubber band shows the live length in m or units; 45/90 toggle constrains segments.",
+        "Snapping a path endpoint onto another path creates a junction ring - the split is data-model work (PRD 18).",
+      ],
+    },
+    plotshop: {
+      t: "Trace an area",
+      items: [
+        "Area places trace exactly like paths; Done needs 3 unique corners and stays disabled until valid (PRD 16, AC-04).",
+        "On Done it saves instantly - no review ceremony. The detail sheet slides up after, dismissible (PRD 16, 17).",
+        "Exports as Polygon with a closed ring (PRD 22).",
+      ],
+    },
+    placestair: {
+      t: "Point places",
+      items: [
+        "Toilets, entrances, stairs, lifts, escalators: one tap places and saves (PRD 16).",
+        "Vertical connectors then ask which floors they link, with direction - forward-declare floors that do not exist yet (PRD 18).",
+      ],
+    },
+    detail: {
+      t: "Detail sheet",
+      items: [
+        "Never blocking: Skip closes it; the place was already saved either way (PRD 16, P2).",
+        "Only type-relevant fields appear - the catalog is a config table + Zod schema (PRD 21).",
+        "Places near a path get a door link: dotted on canvas, confirmable here (PRD 18).",
+        "Confidence defaults to <b>high</b> because geometry is hand-plotted (PRD 19).",
+        "Photos: file input with capture, downscaled to data URI, quota errors degrade gracefully (PRD 34).",
+      ],
+    },
+    pathtag: {
+      t: "Path tagging",
+      items: [
+        "The post-capture tag is optional and deferred-friendly (PRD 15).",
+        "Open area converts the trace to a closed polygon - the PRD lists it as both a path tag and a polygon capture; confirm the intended behaviour with the team (PRD 15 vs 21).",
+      ],
+    },
+    calibrate: {
+      t: "Set Real Length",
+      items: [
+        "Pick any existing line (or trace a new one), type its real length or step-count it; the whole floor rescales (PRD 14).",
+        "Step helper: +1 step taps x 0.75 m personal step length from Settings. Manual and permissionless by design.",
+        "After calibrating, labels and export coordinates are real meters; uncalibrated floors honestly say units (AC-03).",
+      ],
+    },
+    editmode: {
+      t: "Live editing",
+      items: [
+        "Select anything: drag corners, tap a dashed midpoint to add one, delete with an undo toast (PRD 17).",
+        "Autosave commits within 1s of every completed gesture; the Saved pill reflects real DB commits (PRD 17, AC-05).",
+        "Undo/redo spans the session, minimum 100 steps; not persisted across restarts by design (PRD 17).",
+        "A crash mid-gesture is recoverable: drafts persist to session state on every point add (PRD 31).",
+      ],
+    },
+    finish: {
+      t: "Finish floor",
+      items: [
+        "Finish marks the floor completed; nothing locks - reopen and edit anytime (PRD 11, 12).",
+      ],
+    },
+    floordone: {
+      t: "Floor completed",
+      items: [
+        "Completion is a status, not a lock. Download here or from the project overview.",
+        "The next floor usually starts at a connector - forward-declared floors already contain the stair stub (PRD 18).",
+      ],
+    },
+    download: {
+      t: "Download",
+      items: [
+        "Floor GeoJSON, project GeoJSON, and a full-fidelity backup file - three different jobs (PRD 22, 30).",
+        "Schema v2: app, schemaVersion, floors list, and an honest coordinateSystem block (PRD 22).",
+        "Geometry: paths LineString, areas Polygon, points Point; connectors carry fromFloor / toFloor / direction.",
+        "The exporter validates against Zod and is covered by golden-file tests in CI (PRD 22, 37).",
+      ],
+    },
+    desktop: {
+      t: "Desktop",
+      items: [
+        "Full CRUD, geometry editing and downloads; capture tools are hidden behind the notice (PRD 25, AC-12).",
+        "Editing shares the same domain actions as mobile - only the capture gestures are mobile-only.",
+        "The preview carries the same 2D / 3D toggle as the phone - one renderer, one data source.",
+      ],
+    },
+    view3d: {
+      t: "2D / 3D views",
+      items: [
+        "One data model, two renderers - the 3D view reads the same live floor state, so it is always current the moment you toggle (PRD 23 keeps data in floor coordinates, render-agnostic).",
+        "Dollhouse rendering: floor slabs stacked by <b>order</b>, low extruded walls, path ribbons, pin markers, emergent junction dots.",
+        "Focus chips isolate one floor; the rest ghost out. Reset restores the 3/4 view, the square button gives a plan (top) view.",
+        "Plotting stays 2D - 3D is view-only, consistent with capture being a canvas tool (PRD 25).",
+        "The prototype renderer is hand-rolled SVG; production would add a real 3D engine (e.g. Three.js) behind the same interface as a V3 candidate - V2 pins a single canvas SDK on purpose (PRD 27).",
+      ],
+    },
+  };
+  function notesKey() {
+    if (S.screen === "firstrun") return "firstrun";
+    if (S.screen === "desktop") return "desktop";
+    if (S.screen === "dashboard")
+      return S.sheet && S.sheet.kind === "new" ? "newproject" : "projects";
+    if (S.screen === "project") {
+      if (S.sheet && S.sheet.kind === "floor") return "newfloor";
+      if (S.sheet && (S.sheet.kind === "confirm-project" || S.sheet.kind === "menu"))
+        return "delete";
+      return "project";
+    }
+    if (S.screen === "floordone") return "floordone";
+    if (S.screen === "map") {
+      if (S.v3 && S.v3.on && !S.sheet) return "view3d";
+      if (S.sheet) {
+        const k = S.sheet.kind;
+        if (k === "palette") return "plotshop";
+        if (k === "detail") return "detail";
+        if (k === "detail-path") return "pathtag";
+        if (k === "calibrate") return "calibrate";
+        if (k === "finish") return "finish";
+        if (k === "export") return "download";
+        if (k === "discard") return "tracepath";
+        return "workspace";
+      }
+      if (S.flow) {
+        if (S.flow.stage === "place") return "placestair";
+        return S.flow.tool === "path" ? "tracepath" : "plotshop";
+      }
+      if (S.sel) return "editmode";
+      return "workspace";
+    }
+    return "projects";
+  }
+  function renderNotes(key) {
+    const el = document.getElementById("notes");
+    if (!el) return;
+    const n = NOTES[key] || NOTES.workspace;
+    el.innerHTML =
+      '<div class="eyebrow">Build notes</div><h3>' +
+      n.t +
+      "</h3><ul>" +
+      n.items.map((i) => "<li>" + i + "</li>").join("") +
+      "</ul>";
+  }
+
+  /* ================= actions ================= */
+  function gid(id) {
+    const el = document.getElementById(id);
+    return el ? el.value : "";
+  }
+  const ACTIONS = {
+    noop: () => {},
+    "sheet-close": () => {
+      S.sheet = null;
+      S.edd = null;
+      render();
+    },
+    "reset-demo": () => {
+      S = freshState();
+      V.init = false;
+      render();
+    },
+    "new-project": () => {
+      S.sheet = { kind: "new" };
+      render();
+    },
+    "np-floor": (el, ctx) => {
+      S.npFloor = ctx.s;
+      el.closest(".chiprow")
+        .querySelectorAll(".choice")
+        .forEach((c) => c.classList.toggle("on", c === el));
+      const ci = document.getElementById("np-custom");
+      if (ci) ci.hidden = ctx.s !== "Custom";
+      if (ci && ctx.s === "Custom") ci.focus();
+    },
+    "create-project": () => {
+      const name = gid("np-name").trim();
+      if (!name) {
+        const e = document.getElementById("np-err");
+        if (e) e.hidden = false;
+        return;
+      }
+      const sf = S.npFloor === "Custom" ? gid("np-custom").trim() || "Ground" : S.npFloor;
+      const p = {
+        id: uid(),
+        name: name,
+        address: gid("np-addr").trim(),
+        created: "2026-09-28",
+        edited: "just now",
+        backupAt: null,
+        floors: [{ id: uid(), name: sf, order: 0, status: "mapping", scale: null, features: [] }],
+      };
+      S.projects.unshift(p);
+      S.pid = p.id;
+      S.fid = p.floors[0].id;
+      S.sheet = null;
+      S.screen = "project";
+      toast("Project created");
+      render();
+    },
+    "open-project": (el, ctx) => {
+      S.pid = ctx.id;
+      S.screen = "project";
+      S.sheet = null;
+      render();
+    },
+    "back-dash": () => {
+      S.screen = "dashboard";
+      S.pid = null;
+      S.sheet = null;
+      render();
+    },
+    "proj-menu": () => {
+      S.sheet = { kind: "menu" };
+      render();
+    },
+    "rename-open": () => {
+      S.sheet = { kind: "rename" };
+      render();
+    },
+    "rename-save": () => {
+      const v = gid("rn-name").trim();
+      if (v && curProj()) {
+        curProj().name = v;
+        toast("Renamed");
+      }
+      S.sheet = null;
+      render();
+    },
+    "proj-delete-open": () => {
+      S.sheet = { kind: "confirm-project" };
+      render();
+    },
+    "proj-delete-yes": () => {
+      S.projects = S.projects.filter((x) => x.id !== S.pid);
+      S.pid = null;
+      S.sheet = null;
+      S.screen = "dashboard";
+      toast("Project deleted");
+      render();
+    },
+    "backup-demo": () => {
+      const p = curProj() || S.projects[0];
+      if (p) p.backupAt = "just now";
+      S.sheet = null;
+      S.backupDismissed = true;
+      toast("Backup downloaded (stub in prototype)");
+      render();
+    },
+    "dismiss-backup": () => {
+      S.backupDismissed = true;
+      render();
+    },
+    "import-backup": () => {
+      toast("Prototype: opens a .walkandplot.json picker and imports a copy");
+    },
+    "add-floor": () => {
+      S.sheet = { kind: "floor" };
+      render();
+    },
+    "fl-chip": (el, ctx) => {
+      const i = document.getElementById("fl-name");
+      if (i) i.value = ctx.s;
+    },
+    "create-floor": () => {
+      const p = curProj();
+      if (!p) return;
+      const n = p.floors.length + 1;
+      const name = gid("fl-name").trim() || "Floor " + n;
+      const order = Math.max.apply(null, p.floors.map((x) => x.order).concat([-1])) + 1;
+      p.floors.push({
+        id: uid(),
+        name: name,
+        order: order,
+        status: "mapping",
+        scale: null,
+        features: [],
+      });
+      p.edited = "just now";
+      S.sheet = null;
+      toast("Floor added");
+      render();
+    },
+    "open-floor": (el, ctx) => {
+      toMap(ctx.id);
+      render();
+    },
+    "back-proj": () => {
+      S.screen = "project";
+      S.flow = null;
+      S.sel = null;
+      S.sheet = null;
+      S.edd = null;
+      render();
+    },
+    "trace-path": () => {
+      S.flow = { tool: "path", subtype: "corridor", stage: "plot", vs: [] };
+      S.sel = null;
+      render();
+    },
+    palette: () => {
+      S.sheet = { kind: "palette" };
+      render();
+    },
+    "pick-type": (el, ctx) => {
+      const T = TYPES[ctx.t];
+      S.sheet = null;
+      S.sel = null;
+      S.flow =
+        T.geom === "point"
+          ? { tool: "place", subtype: ctx.t, stage: "place", vs: [] }
+          : { tool: "place", subtype: ctx.t, stage: "plot", vs: [] };
+      render();
+    },
+    "plot-undo": () => {
+      const fl = S.flow;
+      if (!fl) return;
+      if (fl.vs.length) {
+        fl.vs.pop();
+        paintMap();
+      } else {
+        S.flow = null;
+        render();
+      }
+    },
+    "plot-cancel": () => {
+      const fl = S.flow;
+      if (!fl) return;
+      if (fl.vs.length) {
+        S.sheet = { kind: "discard" };
+        render();
+      } else {
+        S.flow = null;
+        render();
+      }
+    },
+    "discard-keep": () => {
+      S.sheet = null;
+      render();
+    },
+    "discard-yes": () => {
+      S.flow = null;
+      S.sheet = null;
+      render();
+    },
+    "toggle-rag": () => {
+      S.rag = !S.rag;
+      render();
+    },
+    "plot-done": () => {
+      finishGesture();
+    },
+    "hist-undo": () => {
+      histGo(-1);
+    },
+    "hist-redo": () => {
+      histGo(1);
+    },
+    "edit-details": () => {
+      const f = curFloor().features.find((x) => x.id === S.sel);
+      if (!f) return;
+      S.edd = draftOf(f);
+      S.sheet = { kind: f.cat === "path" ? "detail-path" : "detail", fid: f.id };
+      render();
+    },
+    "sel-delete": () => {
+      deleteSel();
+    },
+    dchip: (el, ctx) => {
+      const v = ctx.d,
+        i = v.indexOf(":");
+      const fld = v.slice(0, i),
+        val = v.slice(i + 1);
+      if (fld === "connect") {
+        if (S.edd) S.edd.connect = null;
+        const f = curFloor().features.find((x) => x.id === S.sheet.fid);
+        if (f && f.props) delete f.props.connect;
+        render();
+        return;
+      }
+      if (!S.edd) return;
+      S.edd[fld] = val;
+      if (fld === "toFloorId") {
+        render();
+        return;
+      }
+      const row = el.closest(".chiprow");
+      if (row) row.querySelectorAll(".choice").forEach((c) => c.classList.toggle("on", c === el));
+    },
+    "detail-skip": () => {
+      S.sheet = null;
+      S.edd = null;
+      render();
+    },
+    "detail-save": () => {
+      const floor = curFloor();
+      const f = floor.features.find((x) => x.id === S.sheet.fid);
+      if (!f || !S.edd) return;
+      const d = S.edd;
+      if (S.sheet.kind === "detail-path") {
+        f.subtype = d.tag;
+        f.geom = TYPES[d.tag].geom;
+        f.notes = gid("dt-notes").trim() || null;
+        f.props.width = gid("dt-width").trim() || null;
+      } else {
+        f.name = gid("dt-name").trim() || null;
+        f.access = d.access;
+        f.confidence = d.conf;
+        f.notes = gid("dt-notes").trim() || null;
+        const pr = f.props || (f.props = {});
+        if (f.subtype === "shop") pr.shopNumber = gid("dt-number").trim() || null;
+        if (f.subtype === "toilet" && d.gender) pr.gender = d.gender;
+        if (f.subtype === "entrance" && d.kind) pr.kind = d.kind;
+        if (isConn(f.subtype)) {
+          if (d.direction) pr.direction = d.direction;
+          if (f.subtype === "lift" && d.kind) pr.kind = d.kind;
+          if (f.subtype === "stair") pr.accessible = d.accessible || null;
+          let tid = d.toFloorId || null;
+          if (tid === "new") {
+            const nname = gid("dt-newfloor").trim() || "Floor " + (curProj().floors.length + 1);
+            const order =
+              Math.max.apply(
+                null,
+                curProj().floors.map((x) => x.order),
+              ) + 1;
+            const nf = {
+              id: uid(),
+              name: nname,
+              order: order,
+              status: "mapping",
+              scale: null,
+              features: [],
+            };
+            nf.features.push({
+              id: uid(),
+              subtype: f.subtype,
+              cat: "place",
+              geom: "point",
+              name: null,
+              access: "public",
+              status: "active",
+              confidence: "high",
+              notes: null,
+              props: { direction: d.direction || null, toFloorId: floor.id },
+              connectorGroupId: f.connectorGroupId || "cg" + uid(),
+              p: { x: f.p.x, y: f.p.y },
+            });
+            curProj().floors.push(nf);
+            tid = nf.id;
+            toast(nname + " created with this connector");
+          }
+          pr.toFloorId = tid;
+        }
+      }
+      curProj().edited = "just now";
+      pushHist();
+      savedPulse();
+      S.sheet = null;
+      S.edd = null;
+      toast("Details saved");
+      render();
+    },
+    "photo-stub": () => {
+      toast("Prototype: opens the camera through a file input");
+    },
+    calibrate: () => {
+      S.calSel = null;
+      S.sheet = { kind: "calibrate" };
+      render();
+    },
+    "cal-sel": (el, ctx) => {
+      S.calSel = ctx.id;
+      render();
+    },
+    "step-plus": () => {
+      S.calSteps = (S.calSteps || 0) + 1;
+      const c = document.getElementById("cal-cnt"),
+        q = document.getElementById("cal-eq");
+      if (c) c.textContent = S.calSteps;
+      if (q) q.textContent = "= " + (S.calSteps * 0.75).toFixed(1) + " m at 0.75 m per step";
+    },
+    "cal-use-steps": () => {
+      if (!S.calSteps) {
+        toast("Tap + 1 step for each step you walk");
+        return;
+      }
+      const i = document.getElementById("cal-len");
+      if (i) i.value = (S.calSteps * 0.75).toFixed(2);
+    },
+    "cal-apply": () => {
+      const floor = curFloor();
+      const sel = floor.features.find((f) => f.id === S.calSel);
+      let real = parseFloat(gid("cal-len"));
+      if ((!real || real <= 0) && S.calSteps) real = S.calSteps * 0.75;
+      if (!sel) {
+        toast("Trace a path first");
+        return;
+      }
+      if (!real || real <= 0) {
+        toast("Enter the real length first");
+        return;
+      }
+      const units = pathLen(sel.vs);
+      if (units <= 0) {
+        toast("That line has no length yet");
+        return;
+      }
+      const mult = real / units;
+      floor.features.forEach((f) => {
+        if (f.geom === "point") f.p = { x: f.p.x * mult, y: f.p.y * mult };
+        else f.vs = f.vs.map((v) => ({ x: v.x * mult, y: v.y * mult }));
+      });
+      floor.scale = { calibrated: true, metersPerUnit: 1 };
+      V.init = false;
+      pushHist();
+      savedPulse();
+      S.sheet = null;
+      toast("Floor rescaled - lengths now show meters");
+      render();
+    },
+    "dismiss-hint": () => {
+      S.calHintDismissed = true;
+      render();
+    },
+    "finish-sheet": () => {
+      S.sheet = { kind: "finish" };
+      render();
+    },
+    "finish-floor": () => {
+      const floor = curFloor();
+      floor.status = "completed";
+      curProj().edited = "just now";
+      S.sheet = null;
+      S.screen = "floordone";
+      toast(floor.name + " completed");
+      render();
+    },
+    "export-open": () => {
+      S.sheet = { kind: "export" };
+      render();
+    },
+    "export-preview": () => {
+      const pre = document.getElementById("geopre"),
+        l = document.getElementById("epl");
+      if (pre) {
+        pre.hidden = !pre.hidden;
+        if (l) l.textContent = pre.hidden ? "Preview GeoJSON" : "Hide preview";
+      }
+    },
+    "export-preview-d": () => {
+      const pre = document.getElementById("dgeopre");
+      if (pre) pre.hidden = !pre.hidden;
+    },
+    "copy-geo": () => {
+      if (!navigator.clipboard) {
+        toast("Copy unavailable - select the text instead");
+        return;
+      }
+      navigator.clipboard.writeText(S._geo || "").then(
+        () => toast("GeoJSON copied"),
+        () => toast("Copy blocked - select the text instead"),
+      );
+    },
+    "dl-row": () => {
+      toast("Prototype: the real app saves this file to your device");
+    },
+    "install-demo": () => {
+      toast("Prototype: this opens the PWA install prompt");
+    },
+    "install-close": () => {
+      S.installHidden = true;
+      render();
+    },
+    "zoom-in": () => {
+      const r = document.getElementById("mapwrap").getBoundingClientRect();
+      zoomAt(r.width / 2, r.height / 2, 1.3);
+    },
+    "zoom-out": () => {
+      const r = document.getElementById("mapwrap").getBoundingClientRect();
+      zoomAt(r.width / 2, r.height / 2, 0.77);
+    },
+    fit: () => {
+      fitMap();
+    },
+    "toggle-3d": () => {
+      S.v3.on = !S.v3.on;
+      if (!S.v3.on) stopRot();
+      render();
+    },
+    "v3-focus": (el, ctx) => {
+      S.v3.focus = ctx.s;
+      render();
+    },
+    "v3-reset": () => {
+      S.v3.yaw = V3DEF.yaw;
+      S.v3.pitch = V3DEF.pitch;
+      S.v3.zoom = 1;
+      render3D();
+      bindV3();
+    },
+    "v3-top": () => {
+      S.v3.pitch = 0.05;
+      render3D();
+    },
+    "desk-2d": () => {
+      S.desk3 = false;
+      stopRot();
+      render();
+    },
+    "desk-3d": () => {
+      S.desk3 = true;
+      render();
+    },
+  };
+  document.addEventListener("click", (e) => {
+    const n = e.target.closest("[data-nav]");
+    if (n) {
+      navTo(n.getAttribute("data-nav"));
+      return;
+    }
+    const el = e.target.closest("[data-a]");
+    if (!el) return;
+    const a = el.getAttribute("data-a");
+    if (ACTIONS[a])
+      ACTIONS[a](el, {
+        id: el.getAttribute("data-id"),
+        s: el.getAttribute("data-s"),
+        d: el.getAttribute("data-d"),
+        t: el.getAttribute("data-t"),
+      });
+  });
+  document.addEventListener("input", (e) => {
+    if (e.target.id === "cf-input") {
+      const b = document.getElementById("cf-yes");
+      if (b) b.disabled = e.target.value !== "DELETE";
+    }
+  });
+
+  /* ================= init ================= */
+  S = freshState();
+  render();
+  window.addEventListener("resize", () => {
+    if (S.screen === "map" && document.getElementById("mapg")) paintMap();
+    if (document.getElementById("v3d")) render3D();
+  });
+</script>

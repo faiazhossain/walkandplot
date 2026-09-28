@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#4F46E5"/>
+  <!-- Glyph scaled into the maskable safe zone (center 80%). -->
+  <g fill="none" stroke="#ffffff" stroke-width="27" stroke-linecap="round" transform="translate(256 256) scale(0.72) translate(-256 -256)">
+    <circle cx="128" cy="384" r="44"/>
+    <circle cx="384" cy="128" r="44"/>
+    <path d="M172 372C290 336 330 288 322 176" stroke-dasharray="52 56"/>
+  </g>
+</svg>
