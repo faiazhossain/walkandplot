@@ -231,3 +231,67 @@ test("basemap toggle keeps plotting fully usable (offline-safe)", async ({ page 
   await page.getByRole("button", { name: "Back to project" }).click();
   await expect(page.getByRole("link", { name: /Ground/ })).toContainText("1 item");
 });
+
+test("offline after install: the full loop passes (AC-10)", async ({ browser }) => {
+  // PRD 37: install first (online, so the service worker precaches), then
+  // everything happens with the network fully disabled.
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  await page.goto("/");
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await context.setOffline(true);
+
+  // Reload from the precache to prove the shell survives offline.
+  await page.reload();
+  await expect(page.getByText("Walk the space", { exact: true })).toBeVisible();
+
+  // Create -> map -> place -> export, all offline.
+  await page.getByRole("link", { name: "Create Your First Project" }).click();
+  await page.getByLabel("Building name").fill("Offline Tower");
+  await page.getByRole("button", { name: "Create Project" }).click();
+  await page.getByRole("link", { name: /Ground/ }).click();
+  await expect(page.getByText("Offline Tower")).toBeVisible();
+
+  const canvas = page.locator(CANVAS);
+  await page.getByRole("button", { name: "Trace Path" }).click();
+  await canvas.click({ position: { x: 150, y: 350 } });
+  await canvas.click({ position: { x: 246, y: 350 } });
+  await page.getByRole("button", { name: "Done" }).click();
+
+  await page.getByRole("button", { name: "Back to project" }).click();
+  await expect(page.getByRole("link", { name: /Ground/ })).toContainText("1 item");
+
+  // GeoJSON export + backup downloads are pure blobs - they work offline.
+  await page.getByRole("button", { name: "More project actions" }).click();
+  const mapDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download Map File" }).click();
+  expect((await mapDownload).suggestedFilename()).toBe("Offline-Tower.geojson");
+
+  await page.getByRole("button", { name: "More project actions" }).click();
+  const backupDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download Backup" }).click();
+  expect((await backupDownload).suggestedFilename()).toMatch(/Offline-Tower-backup-.*\.walkandplot\.json/);
+
+  await context.close();
+});
+
+test("mid-trace refresh offers the draft back (PRD 31, AC-06)", async ({ page }) => {
+  await createProjectToWorkspace(page);
+  const canvas = page.locator(CANVAS);
+
+  await page.getByRole("button", { name: "Trace Path" }).click();
+  await canvas.click({ position: { x: 150, y: 350 } });
+  await canvas.click({ position: { x: 246, y: 350 } });
+
+  // Crash simulation: reload mid-trace.
+  await page.reload();
+  await expect(page.getByText(/Continue tracing - 2 corners placed\?/)).toBeVisible();
+  await page.getByRole("button", { name: "Continue" }).click();
+
+  // The restored draft is a real draft: one more corner, then Done.
+  await canvas.click({ position: { x: 246, y: 430 } });
+  await page.getByRole("button", { name: "Done" }).click();
+
+  await page.getByRole("button", { name: "Back to project" }).click();
+  await expect(page.getByRole("link", { name: /Ground/ })).toContainText("1 item");
+});

@@ -22,7 +22,7 @@ import {
   ZoomOut,
   Maximize,
 } from "lucide-react";
-import { MapCanvas, type CanvasControls } from "@/components/canvas/map-canvas";
+import { MapCanvas, type CanvasControls, type Viewport } from "@/components/canvas/map-canvas";
 import { TypePicker } from "@/components/capture/type-picker";
 import { PlaceDetailSheet } from "@/components/capture/place-detail-sheet";
 import { CalibrateSheet, type CalibrateStage } from "@/components/capture/calibrate-sheet";
@@ -30,6 +30,7 @@ import { DEFAULT_ANCHOR, type GeoAnchor } from "@/lib/domain/geo";
 import { getPlaceType, PATH_SUBTYPES, typeLabel } from "@/lib/config/place-types";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
+import { ErrorBoundary } from "@/components/common/error-boundary";
 import { SaveIndicator } from "@/components/common/save-indicator";
 import { EmptyState } from "@/components/common/empty-state";
 import { featureRepo, floorRepo, projectRepo } from "@/lib/db/repositories";
@@ -44,6 +45,7 @@ import { gridStepForZoom } from "@/lib/domain/grid";
 import { dist as distPts } from "@/lib/domain/geometry";
 import type { Feature } from "@/lib/domain/schema";
 import { runSave, useSaveStateStore } from "@/lib/store/save-state";
+import { requestPersistentStorage } from "@/lib/db/storage-health";
 import { useHistoryStore, type HistoryEntry } from "@/lib/store/history";
 import { useToolsStore } from "@/lib/store/tools";
 import { useUndoToastStore } from "@/components/common/undo-toast";
@@ -51,6 +53,39 @@ import { useUndoToastStore } from "@/components/common/undo-toast";
 // PRD 12/15/17: the mapping workspace at /projects/map?id=<floorId>.
 // Autosave on every completed gesture, undo/redo for the session, snapping
 // with visible indicators, and a one-finger draw / two-finger navigate model.
+
+// PRD 31 readers: shared by mount initialization and floor changes.
+function readStoredDraft(id: string | null): {
+  points: Point[];
+  snaps: (ReturnType<typeof findSnap> | null)[];
+  tool: string;
+} | null {
+  if (!id) return null;
+  try {
+    const raw = sessionStorage.getItem(`wap-draft:${id}`);
+    const parsed = raw
+      ? (JSON.parse(raw) as {
+          points: Point[];
+          snaps: (ReturnType<typeof findSnap> | null)[];
+          tool: string;
+        })
+      : null;
+    return parsed && parsed.points.length > 0 ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function readStoredCamera(id: string | null): Viewport | null {
+  if (!id) return null;
+  try {
+    const raw = sessionStorage.getItem(`wap-cam:${id}`);
+    const parsed = raw ? (JSON.parse(raw) as Viewport) : null;
+    return parsed && Number.isFinite(parsed.scale) && parsed.scale > 0 ? parsed : null;
+  } catch {
+    return null;
+  }
+}
 
 const DOOR_LINK_THRESHOLD_UNITS = 3;
 const SNAP_RADIUS_PX = 22;
@@ -119,6 +154,12 @@ export function Workspace() {
   const [calTipDismissed, setCalTipDismissed] = useState(false);
   // Optional Barikoi basemap under the canvas (per-floor toggle in meta).
   const [basemapOn, setBasemapOn] = useState(false);
+  // PRD 31: crash recovery - the mid-trace draft and camera per floor.
+  const [resumeDraft, setResumeDraft] = useState(() => readStoredDraft(floorId));
+  const [initialViewport, setInitialViewport] = useState<Viewport | null>(() =>
+    readStoredCamera(floorId),
+  );
+  const cameraTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const controlsRef = useRef<CanvasControls | null>(null);
 
   const sheetFeature = features.find((f) => f.id === sheetFeatureId) ?? null;
@@ -140,6 +181,18 @@ export function Workspace() {
       setCalTipDismissed(false);
     }
     void metaRepo.get(`basemap:${floorId}`).then((v) => setBasemapOn(v === true));
+
+    // PRD 31: offer the surviving draft and camera back after a crash.
+    setInitialViewport(readStoredCamera(floorId));
+    setResumeDraft(readStoredDraft(floorId));
+
+    // PRD 29: ask once for persistent storage with a one-line explanation;
+    // a denial changes nothing except backup-reminder cadence.
+    void metaRepo.get("persistRequested").then((asked) => {
+      if (asked) return;
+      void metaRepo.set("persistRequested", true);
+      void requestPersistentStorage().then((granted) => metaRepo.setPersistenceGranted(granted));
+    });
   }
 
   useEffect(() => {
@@ -198,6 +251,21 @@ export function Workspace() {
     scaleRef.current = scale;
     gridStepRef.current = gridStepForZoom(1 / scale);
   }, []);
+
+  // PRD 31: camera is session state, debounced to keep panning cheap.
+  const handleViewportChange = useCallback(
+    (viewport: Viewport) => {
+      if (cameraTimer.current) clearTimeout(cameraTimer.current);
+      cameraTimer.current = setTimeout(() => {
+        try {
+          sessionStorage.setItem(`wap-cam:${floorId}`, JSON.stringify(viewport));
+        } catch {
+          // Session-only convenience.
+        }
+      }, 300);
+    },
+    [floorId],
+  );
   const gridStepRef = useRef<number | null>(null);
 
   const computeCursor = useCallback(
@@ -213,6 +281,23 @@ export function Workspace() {
   );
 
   const cursorState = computeCursor(rawCursor);
+
+  // PRD 31: the draft survives refresh - written on every corner.
+  useEffect(() => {
+    try {
+      if (tracing && draft.length > 0) {
+        sessionStorage.setItem(
+          `wap-draft:${floorId}`,
+          JSON.stringify({ points: draft, snaps: draftSnaps, tool }),
+        );
+      }
+      if (!tracing && draft.length === 0) {
+        sessionStorage.removeItem(`wap-draft:${floorId}`);
+      }
+    } catch {
+      // Private mode: recovery simply unavailable, mapping unaffected.
+    }
+  }, [draft, draftSnaps, tracing, tool, floorId]);
 
   // ------------------------------------------------------------- tap actions
 
@@ -312,6 +397,11 @@ export function Workspace() {
     setDraftSnaps([]);
     setRawCursor(null);
     setLastPathId(feature.id);
+    try {
+      sessionStorage.removeItem(`wap-draft:${floorId}`);
+    } catch {
+      // Session-only.
+    }
     commitDraftWithConnections(feature, draftSnaps);
   }
 
@@ -650,31 +740,38 @@ export function Workspace() {
   }
 
   const canFinish = draft.length >= (placingPolygon ? 3 : 2);
-  const basemapAnchor: GeoAnchor | null = basemapOn ? floor.geoAnchor ?? DEFAULT_ANCHOR : null;
+  const basemapAnchor: GeoAnchor | null = basemapOn ? (floor.geoAnchor ?? DEFAULT_ANCHOR) : null;
   const selectedLabel = selected ? (selected.name ?? "Unnamed") : null;
 
   return (
     <main className="fixed inset-0 flex flex-col bg-background" aria-live="polite">
-      <MapCanvas
-        features={features}
-        connections={floorConnections}
-        basemapAnchor={basemapAnchor}
-        floorScale={floor.scale}
-        captureActive={(tracing || placingPolygon || calibrating) && !isDesktop}
-        draft={tracing || placingPolygon || calibrating ? draft : []}
-        cursor={cursorState.cursor}
-        snap={cursorState.snap}
-        canFinishByTap={canFinish}
-        selectedId={selectedId}
-        onTapWorld={handleTapWorld}
-        onCursorMove={handleCursorMove}
-        onSelect={setSelectedId}
-        onMoveVertex={handleMoveVertex}
-        onAddVertex={handleAddVertex}
-        onRemoveVertex={handleRemoveVertex}
-        controlsRef={controlsRef}
-        onScaleChange={handleScaleChange}
-      />
+      <ErrorBoundary
+        area="the map canvas"
+        onReset={() => router.push(`/projects/view?id=${floor.projectId}`)}
+      >
+        <MapCanvas
+          features={features}
+          connections={floorConnections}
+          basemapAnchor={basemapAnchor}
+          initialViewport={initialViewport}
+          onViewportChange={handleViewportChange}
+          floorScale={floor.scale}
+          captureActive={(tracing || placingPolygon || calibrating) && !isDesktop}
+          draft={tracing || placingPolygon || calibrating ? draft : []}
+          cursor={cursorState.cursor}
+          snap={cursorState.snap}
+          canFinishByTap={canFinish}
+          selectedId={selectedId}
+          onTapWorld={handleTapWorld}
+          onCursorMove={handleCursorMove}
+          onSelect={setSelectedId}
+          onMoveVertex={handleMoveVertex}
+          onAddVertex={handleAddVertex}
+          onRemoveVertex={handleRemoveVertex}
+          controlsRef={controlsRef}
+          onScaleChange={handleScaleChange}
+        />
+      </ErrorBoundary>
 
       {/* Top bar overlays the canvas */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-20 pt-[env(safe-area-inset-top)]">
@@ -750,7 +847,9 @@ export function Workspace() {
             if (next && !floor.geoAnchor) {
               // First enable: seed a sensible anchor; Align pins the origin.
               void floorRepo.setGeoAnchor(floor.id, DEFAULT_ANCHOR);
-              setInlineHint("Base map on - pan the map, then tap Align to pin your floor's origin.");
+              setInlineHint(
+                "Base map on - pan the map, then tap Align to pin your floor's origin.",
+              );
             }
           }}
         >
@@ -802,6 +901,48 @@ export function Workspace() {
           <Maximize className="size-5" aria-hidden />
         </Button>
       </div>
+
+      {/* PRD 31: offer the surviving draft back after a crash or refresh */}
+      {resumeDraft && !tracing && !placing && (
+        <div className="absolute inset-x-3 top-16 z-30 flex justify-center">
+          <div
+            role="status"
+            className="pointer-events-auto flex max-w-full items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm shadow"
+          >
+            <span className="min-w-0 flex-1 truncate">
+              Continue tracing - {resumeDraft.points.length} corner
+              {resumeDraft.points.length === 1 ? "" : "s"} placed?
+            </span>
+            <Button
+              size="sm"
+              className="h-9 shrink-0"
+              onClick={() => {
+                setDraft(resumeDraft.points);
+                setDraftSnaps(resumeDraft.snaps);
+                setTool("trace-path");
+                setResumeDraft(null);
+              }}
+            >
+              Continue
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 shrink-0"
+              onClick={() => {
+                try {
+                  sessionStorage.removeItem(`wap-draft:${floorId}`);
+                } catch {
+                  // Session-only.
+                }
+                setResumeDraft(null);
+              }}
+            >
+              Discard
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Hint banner / post-capture subtype chip (PRD 15) / calibration (PRD 14) */}
       {(tracing ||

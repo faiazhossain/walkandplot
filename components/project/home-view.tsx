@@ -18,6 +18,8 @@ import { AppBar } from "@/components/common/app-bar";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { MapThumbnail } from "@/components/common/map-thumbnail";
 import { FirstRunHero } from "@/components/project/first-run-hero";
+import { InstallBanner } from "@/components/common/install-banner";
+import { QuotaBanner } from "@/components/common/quota-banner";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,

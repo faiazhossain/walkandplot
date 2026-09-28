@@ -57,21 +57,33 @@ export const metaRepo = {
     const v = await this.get<number>(`backupDismissed:${projectId}`);
     return typeof v === "number";
   },
+
+  async setPersistenceGranted(granted: boolean): Promise<void> {
+    await this.set("persistGranted", granted);
+  },
+
+  async isPersistenceGranted(): Promise<boolean> {
+    const v = await this.get<boolean>("persistGranted");
+    return v === true;
+  },
 };
 
 // PRD 30: a project older than 7 days since its last backup shows the
 // non-blocking reminder banner. Dismissal silences it for the session.
 export const BACKUP_REMINDER_MS = 7 * 24 * 60 * 60 * 1000;
+// PRD 29: persistence denied -> remind twice as often.
+export const BACKUP_REMINDER_DENIED_MS = 3 * 24 * 60 * 60 * 1000;
 
 export function shouldRemindBackup(
   project: Project,
   lastBackupAt: number | undefined,
   dismissed: boolean,
   now = Date.now(),
+  thresholdMs: number = BACKUP_REMINDER_MS,
 ): boolean {
   if (dismissed) return false;
   const reference = lastBackupAt ?? project.createdAt;
-  return now - reference > BACKUP_REMINDER_MS;
+  return now - reference > thresholdMs;
 }
 
 // PRD 11: "2 mapped" counts floors that have at least one feature; floors

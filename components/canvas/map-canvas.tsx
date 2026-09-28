@@ -12,6 +12,8 @@ import {
   useCanvasTheme,
   type Viewport,
 } from "@/components/canvas/canvas-layers";
+
+export type { Viewport };
 import { TracePreview } from "@/components/canvas/trace-preview";
 import { ConnectionsLayer } from "@/components/canvas/connections-layer";
 import { useBasemap } from "@/components/canvas/basemap";
@@ -53,6 +55,10 @@ export interface MapCanvasProps {
   floorScale: FloorScale;
   /** Optional reference basemap under the canvas (local origin -> anchor). */
   basemapAnchor: GeoAnchor | null;
+  /** PRD 31: restored camera for this floor; used once instead of auto-fit. */
+  initialViewport?: Viewport | null;
+  /** Camera reporting so the workspace can persist it per floor (PRD 31). */
+  onViewportChange?: (viewport: Viewport) => void;
   /** Capture tool active: one finger taps draw instead of panning. */
   captureActive: boolean;
   draft: Point[];
@@ -85,6 +91,8 @@ export function MapCanvas({
   connections,
   floorScale,
   basemapAnchor,
+  initialViewport,
+  onViewportChange,
   captureActive,
   draft,
   cursor,
@@ -170,15 +178,30 @@ export function MapCanvas({
     return () => observer.disconnect();
   }, []);
 
+  const savedViewportRef = useRef<Viewport | null>(initialViewport ?? null);
   useEffect(() => {
     if (!didFit.current && size.width > 0 && size.height > 0) {
-      setViewport(fitViewport(features, size.width, size.height));
+      const saved = savedViewportRef.current;
+      // PRD 31: restore this floor's camera when present; fit otherwise.
+      setViewport(
+        saved && Number.isFinite(saved.scale) && saved.scale > 0
+          ? saved
+          : fitViewport(features, size.width, size.height),
+      );
       didFit.current = true;
     }
     // Fit exactly once, on the first measured size. Deliberately not keyed on
     // `features`: new plots must not yank the camera.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [size]);
+
+  const onViewportChangeRef = useRef(onViewportChange);
+  useEffect(() => {
+    onViewportChangeRef.current = onViewportChange;
+  }, [onViewportChange]);
+  useEffect(() => {
+    onViewportChangeRef.current?.(viewport);
+  }, [viewport]);
 
   const fit = useCallback(() => {
     if (size.width > 0 && size.height > 0) setViewport(fitViewport(features, size.width, size.height));

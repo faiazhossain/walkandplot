@@ -18,6 +18,7 @@ import {
 import { AppBar } from "@/components/common/app-bar";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { EmptyState } from "@/components/common/empty-state";
+import { QuotaBanner } from "@/components/common/quota-banner";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -32,7 +33,12 @@ import { Label } from "@/components/ui/label";
 import { FloorList, StatusChip, type FloorRowData } from "@/components/floor/floor-list";
 import type { Floor } from "@/lib/domain/schema";
 import { floorRepo, projectRepo } from "@/lib/db/repositories";
-import { metaRepo, shouldRemindBackup } from "@/lib/db/meta-repo";
+import {
+  BACKUP_REMINDER_DENIED_MS,
+  BACKUP_REMINDER_MS,
+  metaRepo,
+  shouldRemindBackup,
+} from "@/lib/db/meta-repo";
 import { exportProjectBackup } from "@/lib/backup/export";
 import { downloadJson } from "@/lib/backup/filename";
 import { downloadFloorGeoJSON, downloadProjectGeoJSON } from "@/lib/geojson/export-service";
@@ -59,11 +65,14 @@ export function ProjectOverview() {
         ? Promise.all([
             metaRepo.getLastBackupAt(projectId),
             metaRepo.isBackupReminderDismissed(projectId),
-          ]).then(([last, dismissed]) => ({ last, dismissed }))
+            metaRepo.isPersistenceGranted(),
+          ]).then(([last, dismissed, persistGranted]) => ({ last, dismissed, persistGranted }))
         : Promise.resolve(undefined),
     [projectId],
   );
 
+  // Frozen once at mount: the reminder describes a moment, not a clock.
+  const [now] = useState(() => Date.now());
   const [menuOpen, setMenuOpen] = useState(false);
   const [renamingProject, setRenamingProject] = useState(false);
   const [deletingProject, setDeletingProject] = useState(false);
@@ -128,7 +137,16 @@ export function ProjectOverview() {
     }
   }
 
-  const remind = backupMeta && shouldRemindBackup(project, backupMeta.last, backupMeta.dismissed);
+  // PRD 29: persistence denied -> remind twice as often.
+  const remind =
+    backupMeta &&
+    shouldRemindBackup(
+      project,
+      backupMeta.last,
+      backupMeta.dismissed,
+      now,
+      backupMeta.persistGranted ? BACKUP_REMINDER_MS : BACKUP_REMINDER_DENIED_MS,
+    );
 
   return (
     <>
@@ -159,6 +177,7 @@ export function ProjectOverview() {
       />
 
       <div className="mx-auto w-full max-w-md flex-1 px-4 pt-4 pb-10">
+        <QuotaBanner />
         {remind && (
           <BackupBanner
             projectId={project.id}
