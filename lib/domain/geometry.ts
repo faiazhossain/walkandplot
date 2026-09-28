@@ -19,13 +19,18 @@ export function pathLength(vs: Point[]): number {
 }
 
 export function pointSegmentDistance(p: Point, a: Point, b: Point): number {
+  return dist(p, nearestOnSegment(p, a, b).point);
+}
+
+// Closest point on the closed segment ab, with the interpolation factor so
+// callers can tell endpoints from the middle (junction snapping, PRD 18).
+export function nearestOnSegment(p: Point, a: Point, b: Point): { point: Point; t: number } {
   const dx = b.x - a.x;
   const dy = b.y - a.y;
   const l2 = dx * dx + dy * dy;
-  if (l2 === 0) return dist(p, a);
-  let t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2;
-  t = Math.max(0, Math.min(1, t));
-  return dist(p, { x: a.x + t * dx, y: a.y + t * dy });
+  if (l2 === 0) return { point: a, t: 0 };
+  const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2));
+  return { point: { x: a.x + t * dx, y: a.y + t * dy }, t };
 }
 
 // Ray casting; used by duplicate-area checks and canvas hit tests.

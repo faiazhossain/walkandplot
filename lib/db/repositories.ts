@@ -23,16 +23,86 @@ function parseOrThrow<T>(schema: z.ZodType<T>, value: unknown): T {
   return result.data;
 }
 
+// Keeps "Edited 2 hours ago" honest on the dashboard: any floor or feature
+// change bumps the parent project.
+async function touchProject(projectId: string): Promise<void> {
+  await getDb().projects.update(projectId, { updatedAt: Date.now() });
+}
+
 export interface CreateProjectInput {
   name: string;
   description?: string;
   firstFloorName?: string;
 }
 
+/** Dashboard/overview payload: a project with its floors and feature counts. */
+export interface ProjectSummary {
+  project: Project;
+  /** Ordered floors (order field is the source of truth, PRD 11). */
+  floors: Floor[];
+  features: Feature[];
+  featureCountByFloor: Map<string, number>;
+}
+
 export const projectRepo = {
   async list(): Promise<Project[]> {
     const projects = await getDb().projects.toArray();
     return projects.sort((a, b) => b.updatedAt - a.updatedAt);
+  },
+
+  // Everything the dashboard and project overview render, in one read each.
+  // Tables are small (local-only app), so whole-table scans are fine.
+  async listSummaries(): Promise<ProjectSummary[]> {
+    const db = getDb();
+    const [projects, floors, features] = await Promise.all([
+      db.projects.toArray(),
+      db.floors.toArray(),
+      db.features.toArray(),
+    ]);
+    const floorsByProject = new Map<string, Floor[]>();
+    for (const f of floors) {
+      const list = floorsByProject.get(f.projectId) ?? [];
+      list.push(f);
+      floorsByProject.set(f.projectId, list);
+    }
+    const featuresByProject = new Map<string, Feature[]>();
+    for (const f of features) {
+      const list = featuresByProject.get(f.projectId) ?? [];
+      list.push(f);
+      featuresByProject.set(f.projectId, list);
+    }
+    return projects
+      .sort((a, b) => b.updatedAt - a.updatedAt)
+      .map((project) => {
+        const projectFloors = (floorsByProject.get(project.id) ?? []).sort(
+          (a, b) => a.order - b.order,
+        );
+        const projectFeatures = featuresByProject.get(project.id) ?? [];
+        const countByFloor = new Map<string, number>();
+        for (const f of projectFeatures) {
+          countByFloor.set(f.floorId, (countByFloor.get(f.floorId) ?? 0) + 1);
+        }
+        return {
+          project,
+          floors: projectFloors,
+          featureCountByFloor: countByFloor,
+          features: projectFeatures,
+        };
+      });
+  },
+
+  // Project overview payload: the project, its ordered floors, its features.
+  async getBundle(
+    projectId: string,
+  ): Promise<{ project: Project; floors: Floor[]; features: Feature[] } | undefined> {
+    const db = getDb();
+    const project = await db.projects.get(projectId);
+    if (!project) return undefined;
+    const [floors, features] = await Promise.all([
+      floorRepo.listByProject(projectId),
+      db.features.where("projectId").equals(projectId).toArray(),
+    ]);
+    return { project, floors, features };
   },
 
   async get(id: string): Promise<Project | undefined> {
@@ -124,16 +194,77 @@ export const floorRepo = {
       updatedAt: now,
     });
     await db.floors.add(floor);
+    await touchProject(input.projectId);
     return floor;
   },
 
   async setStatus(id: string, status: Floor["status"]): Promise<void> {
     const db = getDb();
+    const floor = await db.floors.get(id);
+    if (!floor) return;
     await db.transaction("rw", db.floors, async () => {
-      const floor = await db.floors.get(id);
-      if (!floor) return;
       await db.floors.put(parseOrThrow(floorSchema, { ...floor, status, updatedAt: Date.now() }));
     });
+    await touchProject(floor.projectId);
+  },
+
+  async rename(id: string, displayName: string): Promise<void> {
+    const db = getDb();
+    const floor = await db.floors.get(id);
+    if (!floor || !displayName.trim()) return;
+    await db.transaction("rw", db.floors, async () => {
+      await db.floors.put(
+        parseOrThrow(floorSchema, {
+          ...floor,
+          displayName: displayName.trim(),
+          updatedAt: Date.now(),
+        }),
+      );
+    });
+    await touchProject(floor.projectId);
+  },
+
+  // Deleting a floor takes its features (and their connections) with it;
+  // callers own the confirmation dialog (PRD 17).
+  async remove(id: string): Promise<void> {
+    const db = getDb();
+    const floor = await db.floors.get(id);
+    await db.transaction("rw", db.floors, db.features, db.connections, async () => {
+      const features = await db.features.where("floorId").equals(id).toArray();
+      const featureIds = new Set(features.map((f) => f.id));
+      await db.features.where("floorId").equals(id).delete();
+      for (const fid of featureIds) {
+        await db.connections.where("fromFeatureId").equals(fid).delete();
+        await db.connections.where("toFeatureId").equals(fid).delete();
+      }
+      await db.floors.delete(id);
+    });
+    if (floor) await touchProject(floor.projectId);
+  },
+
+  // PRD 11: `order` (not list position) is the source of truth. Caller sends
+  // the full floor list in its new order; orders are renumbered densely.
+  async reorder(orderedIds: string[]): Promise<void> {
+    const db = getDb();
+    const first = orderedIds.length ? await db.floors.get(orderedIds[0]) : undefined;
+    if (!first) return;
+    await db.transaction("rw", db.floors, async () => {
+      // Index iteration order is not insertion order - sort by the current
+      // order field so unlisted floors keep their relative position.
+      const all = await db.floors.where("projectId").equals(first.projectId).toArray();
+      all.sort((a, b) => a.order - b.order);
+      const listed = new Set(orderedIds);
+      const rest = all.filter((f) => !listed.has(f.id)).map((f) => f.id);
+      const finalOrder = [...orderedIds, ...rest];
+      for (let i = 0; i < finalOrder.length; i++) {
+        const floor = await db.floors.get(finalOrder[i]);
+        if (!floor || floor.order === i) continue;
+        await db.floors.put(
+          parseOrThrow(floorSchema, { ...floor, order: i, updatedAt: Date.now() }),
+        );
+      }
+    });
+    await touchProject(first.projectId);
   },
 
   // PRD 14: applying Set Real Length scales every feature coordinate so the
@@ -141,9 +272,9 @@ export const floorRepo = {
   // update so a crash mid-way cannot half-rescale a floor (PRD P1).
   async applyCalibration(floorId: string, tracedUnits: number, realMeters: number): Promise<void> {
     const db = getDb();
+    const floor = await db.floors.get(floorId);
+    if (!floor) return;
     await db.transaction("rw", db.floors, db.features, async () => {
-      const floor = await db.floors.get(floorId);
-      if (!floor) return;
       if (tracedUnits <= 0 || realMeters <= 0) {
         throw new Error("Calibration needs positive traced and real lengths");
       }
@@ -161,6 +292,7 @@ export const floorRepo = {
         }),
       );
     });
+    await touchProject(floor.projectId);
   },
 };
 
@@ -195,22 +327,49 @@ export const featureRepo = {
     const now = Date.now();
     const saved = parseOrThrow(featureSchema, { ...feature, createdAt: now, updatedAt: now });
     await getDb().features.add(saved);
+    await touchProject(feature.projectId);
     return saved;
   },
 
   // PRD 17: every completed gesture writes within 1s; this is the write.
   async update(id: string, patch: Partial<Feature>): Promise<Feature | undefined> {
     const db = getDb();
-    return db.transaction("rw", db.features, async () => {
-      const existing = await db.features.get(id);
-      if (!existing) return undefined;
-      const updated = parseOrThrow(featureSchema, { ...existing, ...patch, updatedAt: Date.now() });
-      await db.features.put(updated);
-      return updated;
+    return db
+      .transaction("rw", db.features, async () => {
+        const existing = await db.features.get(id);
+        if (!existing) return undefined;
+        const updated = parseOrThrow(featureSchema, {
+          ...existing,
+          ...patch,
+          updatedAt: Date.now(),
+        });
+        await db.features.put(updated);
+        return updated;
+      })
+      .then(async (result) => {
+        if (result) await touchProject(result.projectId);
+        return result;
+      });
+  },
+
+  // Undo/redo re-inserts a feature that may or may not still exist, so this
+  // is an upsert with the original id and timestamps preserved (PRD 17).
+  async restore(feature: Feature): Promise<void> {
+    const db = getDb();
+    await db.transaction("rw", db.features, async () => {
+      await db.features.put(parseOrThrow(featureSchema, feature));
     });
+    await touchProject(feature.projectId);
   },
 
   async remove(id: string): Promise<void> {
-    await getDb().features.delete(id);
+    const db = getDb();
+    const feature = await db.features.get(id);
+    await db.features.delete(id);
+    if (feature) {
+      await db.connections.where("fromFeatureId").equals(id).delete();
+      await db.connections.where("toFeatureId").equals(id).delete();
+      await touchProject(feature.projectId);
+    }
   },
 };
