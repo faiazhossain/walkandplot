@@ -7,9 +7,7 @@ test("first-run landing shows the product intro", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1, name: "Walk & Plot" })).toBeVisible();
   await expect(page.getByText("Walk. Map. Export.")).toBeVisible();
   await expect(page.getByText("Walk the space", { exact: true })).toBeVisible();
-  await expect(
-    page.getByRole("link", { name: "Create Your First Project" }),
-  ).toBeVisible();
+  await expect(page.getByRole("link", { name: "Create Your First Project" })).toBeVisible();
 });
 
 // PRD 24 / AC-11: the landing must fit 320px width with no horizontal scroll.
@@ -57,4 +55,67 @@ test("project and workspace screens fit 320px", async ({ page }) => {
 
   await page.goto("/settings");
   expect(await overflow()).toBe(0);
+});
+
+// PRD 24/38 Phase 9: the complete workflow fits every phone width with no
+// horizontal scroll (AC-11).
+const PHONE_WIDTHS = [320, 360, 375, 390, 412, 430];
+
+test.describe("breakpoint sweep", () => {
+  for (const width of PHONE_WIDTHS) {
+    test(`all screens fit ${width}px without horizontal scroll`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 690 });
+      const overflow = () =>
+        page.evaluate(
+          () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        );
+
+      await page.goto("/");
+      expect(await overflow()).toBe(0);
+      await page.goto("/projects/new");
+      expect(await overflow()).toBe(0);
+      await page.goto("/settings");
+      expect(await overflow()).toBe(0);
+
+      // Create a project to reach the overview and workspace.
+      await page.goto("/projects/new");
+      await page.getByLabel("Building name").fill(`Sweep ${width}`);
+      await page.getByRole("button", { name: "Create Project" }).click();
+      await expect(page).toHaveURL(/\/projects\/view\?id=/);
+      expect(await overflow()).toBe(0);
+
+      await page.getByRole("link", { name: /Ground/ }).click();
+      await expect(page).toHaveURL(/\/projects\/map\?id=/);
+      await expect(page.getByRole("button", { name: "Trace Path" })).toBeVisible();
+      expect(await overflow()).toBe(0);
+    });
+  }
+});
+
+// PRD 25 / AC-12: desktop views and edits everything but is not offered the
+// mobile capture tools.
+test("desktop hides capture tools and offers editing", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/");
+  await page.getByRole("link", { name: "Create Your First Project" }).click();
+  await page.getByLabel("Building name").fill("Desktop Tower");
+  await page.getByRole("button", { name: "Create Project" }).click();
+  await page.getByRole("link", { name: /Ground/ }).click();
+  await expect(page).toHaveURL(/\/projects\/map\?id=/);
+
+  await expect(page.getByText("Capture is designed for mobile")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Trace Path" })).toBeHidden();
+  await expect(page.getByRole("button", { name: "Finish" })).toBeVisible();
+  // Editing affordances remain: undo/redo and zoom controls.
+  await expect(page.getByRole("button", { name: "Undo" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Zoom in" })).toBeVisible();
+});
+
+// PRD 24/35: dark theme applies through the boot script + system preference.
+test("dark theme applies from the OS preference", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1, name: "Walk & Plot" })).toBeVisible();
+  const isDark = await page.evaluate(() => document.documentElement.classList.contains("dark"));
+  expect(isDark).toBe(true);
 });
