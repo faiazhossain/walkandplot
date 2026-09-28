@@ -2,10 +2,24 @@ import { expect, test } from "@playwright/test";
 
 // Hello-world gate for Phase 1: the static export serves the app shell and
 // the PRD routes exist. Deeper flows land with their phases.
-test("projects home shows the shell and empty state", async ({ page }) => {
+test("first-run landing shows the product intro", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "My Projects" })).toBeVisible();
-  await expect(page.getByText("No projects yet")).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Walk & Plot" })).toBeVisible();
+  await expect(page.getByText("Walk. Map. Export.")).toBeVisible();
+  await expect(page.getByText("Walk the space", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Create Your First Project" }),
+  ).toBeVisible();
+});
+
+// PRD 24 / AC-11: the landing must fit 320px width with no horizontal scroll.
+test("landing has no horizontal scroll at 320px", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 690 });
+  await page.goto("/");
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow).toBe(0);
 });
 
 test("new project route exists", async ({ page }) => {

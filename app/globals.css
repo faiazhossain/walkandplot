@@ -134,6 +134,11 @@
   --primary-foreground: oklch(0.985 0 0);
   --ring: oklch(0.511 0.262 274);
   --radius: 0.875rem;
+  --muted-foreground: #5d616d; /* prototype ink2 - secondary text clears WCAG AA */
+}
+
+.dark {
+  --muted-foreground: #9aa0ac; /* prototype dark ink2 */
 }
 
 /* Millimeter-paper motif used by the mapping canvas and empty states. */
