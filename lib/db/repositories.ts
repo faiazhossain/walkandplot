@@ -1,8 +1,10 @@
 import { z } from "zod";
 import { getDb } from "@/lib/db/db";
 import { newId } from "@/lib/db/id";
-import { featureSchema, floorSchema, projectSchema } from "@/lib/domain/schema";
-import type { Feature, Floor, Project } from "@/lib/domain/schema";
+import { featureSchema, connectionSchema, floorSchema, projectSchema } from "@/lib/domain/schema";
+import type { Connection, Feature, Floor, Project } from "@/lib/domain/schema";
+import { dist, nearestOnSegment } from "@/lib/domain/geometry";
+import { splitLineString } from "@/lib/domain/connections";
 
 // PRD 29: repositories are the only writers. Every persisted record is
 // validated against Zod on write; multi-record writes run in a transaction.
@@ -321,6 +323,10 @@ export const featureRepo = {
     return getDb().features.where("floorId").equals(floorId).toArray();
   },
 
+  async get(id: string): Promise<Feature | undefined> {
+    return getDb().features.get(id);
+  },
+
   async create(
     feature: Omit<Feature, "createdAt" | "updatedAt"> & { createdAt?: number },
   ): Promise<Feature> {
@@ -360,6 +366,75 @@ export const featureRepo = {
       await db.features.put(parseOrThrow(featureSchema, feature));
     });
     await touchProject(feature.projectId);
+  },
+
+  // PRD 18 junction splitting: an endpoint landing mid-path splits the
+  // target into two linked segments so the graph stays clean for routing.
+  // One transaction: a crash cannot leave a half-split path (PRD P1).
+  // The junction segment is found by proximity, so callers stay correct even
+  // if earlier splits shifted segment indices.
+  async splitPathAtPoint(
+    featureId: string,
+    junctionPoint: { x: number; y: number },
+    sourceFeatureId?: string,
+  ): Promise<{ right: Feature; connections: Connection[] } | undefined> {
+    const db = getDb();
+    const target = await db.features.get(featureId);
+    if (!target || target.geometry.type !== "LineString") return undefined;
+
+    const vs = target.geometry.coordinates;
+    let bestIndex = 0;
+    let bestDist = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < vs.length - 1; i++) {
+      const a = { x: vs[i][0], y: vs[i][1] };
+      const b = { x: vs[i + 1][0], y: vs[i + 1][1] };
+      const d = dist(junctionPoint, nearestOnSegment(junctionPoint, a, b).point);
+      if (d < bestDist) {
+        bestDist = d;
+        bestIndex = i;
+      }
+    }
+    const snapPoint = nearestOnSegment(
+      junctionPoint,
+      { x: vs[bestIndex][0], y: vs[bestIndex][1] },
+      { x: vs[bestIndex + 1][0], y: vs[bestIndex + 1][1] },
+    ).point;
+    const { left, right } = splitLineString(target.geometry, bestIndex, snapPoint);
+
+    const now = Date.now();
+    const rightFeature = parseOrThrow(featureSchema, {
+      ...target,
+      id: newId(),
+      name: undefined,
+      notes: undefined,
+      geometry: right,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const link = (from: string, to: string): Connection =>
+      parseOrThrow(connectionSchema, {
+        id: newId(),
+        projectId: target.projectId,
+        fromFeatureId: from,
+        toFeatureId: to,
+        kind: "path",
+        createdAt: now,
+      });
+    const connections = [link(target.id, rightFeature.id)];
+    if (sourceFeatureId && sourceFeatureId !== target.id) {
+      connections.push(link(sourceFeatureId, target.id), link(sourceFeatureId, rightFeature.id));
+    }
+
+    await db.transaction("rw", db.features, db.connections, async () => {
+      await db.features.put(
+        parseOrThrow(featureSchema, { ...target, geometry: left, updatedAt: now }),
+      );
+      await db.features.add(rightFeature);
+      await db.connections.bulkAdd(connections);
+    });
+    await touchProject(target.projectId);
+    return { right: rightFeature, connections };
   },
 
   async remove(id: string): Promise<void> {

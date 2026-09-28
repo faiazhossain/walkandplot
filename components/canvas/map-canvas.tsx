@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Layer, Stage } from "react-konva";
 import type Konva from "konva";
 import {
@@ -13,6 +13,7 @@ import {
   type Viewport,
 } from "@/components/canvas/canvas-layers";
 import { TracePreview } from "@/components/canvas/trace-preview";
+import { ConnectionsLayer } from "@/components/canvas/connections-layer";
 import type { Point } from "@/lib/domain/geometry";
 import type { SnapResult } from "@/lib/domain/snap";
 import type { Feature } from "@/lib/domain/schema";
@@ -37,6 +38,7 @@ export interface CanvasControls {
 
 export interface MapCanvasProps {
   features: Feature[];
+  connections: import("@/lib/domain/schema").Connection[];
   floorScale: FloorScale;
   /** Capture tool active: one finger taps draw instead of panning. */
   captureActive: boolean;
@@ -67,6 +69,7 @@ interface ActivePointer {
 
 export function MapCanvas({
   features,
+  connections,
   floorScale,
   captureActive,
   draft,
@@ -99,6 +102,7 @@ export function MapCanvas({
   }, [viewport, captureActive]);
 
   const theme = useCanvasTheme();
+  const featuresById = useMemo(() => new Map(features.map((f) => [f.id, f])), [features]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -299,11 +303,20 @@ export function MapCanvas({
         <Layer listening={false}>
           <GridLayer viewport={viewport} width={size.width} height={size.height} theme={theme} />
         </Layer>
+        <Layer listening={false}>
+          <ConnectionsLayer
+            connections={connections}
+            featuresById={featuresById}
+            viewport={viewport}
+            theme={theme}
+          />
+        </Layer>
         <Layer>
           <FeaturesLayer
             features={features}
             viewport={viewport}
             theme={theme}
+            captureActive={captureActive}
             selectedId={selectedId}
             onSelect={(id) => {
               if (!captureActive) onSelect(id);

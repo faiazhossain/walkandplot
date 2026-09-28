@@ -4,7 +4,7 @@ import { create } from "zustand";
 // Snapping is on by default; the right-angle lock is remembered per session
 // (survives navigation within the app, not restarts).
 
-export type Tool = "select" | "trace-path";
+export type Tool = "select" | "trace-path" | "add-place";
 
 const SESSION_KEY = "wap-session-prefs";
 
@@ -39,17 +39,21 @@ function writeSessionPrefs(prefs: SessionPrefs): void {
 
 interface ToolsState {
   tool: Tool;
+  /** Catalog key of the place being placed while tool === "add-place". */
+  placeType: string | null;
   snapping: boolean;
   angleLock: boolean;
   hydrated: boolean;
   hydrate: () => void;
   setTool: (tool: Tool) => void;
+  startPlacing: (placeType: string) => void;
   toggleSnapping: () => void;
   toggleAngleLock: () => void;
 }
 
 export const useToolsStore = create<ToolsState>()((set) => ({
   tool: "select",
+  placeType: null,
   snapping: true,
   angleLock: false,
   hydrated: false,
@@ -59,7 +63,9 @@ export const useToolsStore = create<ToolsState>()((set) => ({
     set({ ...prefs, hydrated: true });
   },
 
-  setTool: (tool) => set({ tool }),
+  setTool: (tool) => set({ tool, ...(tool !== "add-place" ? { placeType: null } : {}) }),
+
+  startPlacing: (placeType) => set({ tool: "add-place", placeType }),
 
   toggleSnapping: () =>
     set((s) => {

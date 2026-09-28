@@ -169,6 +169,7 @@ interface FeaturesLayerProps {
   features: Feature[];
   viewport: Viewport;
   theme: CanvasTheme;
+  captureActive: boolean;
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   onMoveVertex: (featureId: string, vertexIndex: number, point: Point) => void;
@@ -180,6 +181,7 @@ export function FeaturesLayer({
   features,
   viewport,
   theme,
+  captureActive,
   selectedId,
   onSelect,
   onMoveVertex,
@@ -227,6 +229,8 @@ export function FeaturesLayer({
                 x={flat[0]}
                 y={flat[1]}
                 radius={7 * px}
+                name="handle"
+                draggable={selected && !captureActive}
                 fill={selected ? theme.pathSelected : theme.path}
                 onTap={(e) => {
                   e.cancelBubble = true;
@@ -235,6 +239,13 @@ export function FeaturesLayer({
                 onClick={(e) => {
                   e.cancelBubble = true;
                   onSelect(feature.id);
+                }}
+                onDragEnd={(e) => {
+                  onMoveVertex(
+                    feature.id,
+                    0,
+                    screenToWorld(viewport, { x: e.target.x(), y: e.target.y() }),
+                  );
                 }}
               />
             )}

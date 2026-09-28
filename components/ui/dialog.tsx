@@ -135,4 +135,46 @@ export {
   DialogPortal,
   DialogTitle,
   DialogTrigger,
+  SheetContent,
 };
+
+// Mobile-first bottom sheet (PRD 16/30): slides up from the bottom edge,
+// full width, safe-area padded. Same a11y plumbing as DialogContent.
+function SheetContent({
+  className,
+  children,
+  showCloseButton = true,
+  ...props
+}: DialogPrimitive.Popup.Props & {
+  showCloseButton?: boolean;
+}) {
+  return (
+    <DialogPortal>
+      <DialogOverlay />
+      <DialogPrimitive.Popup
+        data-slot="sheet-content"
+        className={cn(
+          "fixed inset-x-0 bottom-0 z-50 mx-auto flex max-h-[88dvh] w-full max-w-md flex-col gap-4 rounded-t-2xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 outline-none sm:rounded-2xl data-open:animate-in data-open:fade-in-0 data-open:slide-in-from-bottom-6 data-closed:animate-out data-closed:fade-out-0 data-closed:slide-in-from-bottom-6",
+          className,
+        )}
+        style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
+        {...props}
+      >
+        <div
+          aria-hidden
+          className="mx-auto h-1 w-10 shrink-0 rounded-full bg-muted-foreground/30"
+        />
+        {children}
+        {showCloseButton && (
+          <DialogPrimitive.Close
+            data-slot="sheet-close"
+            render={<Button variant="ghost" className="absolute top-2 right-2" size="icon-sm" />}
+          >
+            <XIcon />
+            <span className="sr-only">Close</span>
+          </DialogPrimitive.Close>
+        )}
+      </DialogPrimitive.Popup>
+    </DialogPortal>
+  );
+}

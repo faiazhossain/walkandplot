@@ -8,6 +8,7 @@ import {
   ArrowLeft,
   Check,
   Flag,
+  X,
   Magnet,
   Map as MapIcon,
   Pencil,
@@ -21,11 +22,16 @@ import {
   Maximize,
 } from "lucide-react";
 import { MapCanvas, type CanvasControls } from "@/components/canvas/map-canvas";
+import { TypePicker } from "@/components/capture/type-picker";
+import { PlaceDetailSheet } from "@/components/capture/place-detail-sheet";
+import { getPlaceType, PATH_SUBTYPES, typeLabel } from "@/lib/config/place-types";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { SaveIndicator } from "@/components/common/save-indicator";
 import { EmptyState } from "@/components/common/empty-state";
 import { featureRepo, floorRepo, projectRepo } from "@/lib/db/repositories";
+import { connectionRepo } from "@/lib/db/connection-repo";
+import { nearestPathFeature } from "@/lib/domain/connections";
 import { newId } from "@/lib/db/id";
 import { constrainToAngle, findSnap } from "@/lib/domain/snap";
 import { buildSnapUniverse } from "@/lib/domain/snap-candidates";
@@ -41,6 +47,7 @@ import { useUndoToastStore } from "@/components/common/undo-toast";
 // Autosave on every completed gesture, undo/redo for the session, snapping
 // with visible indicators, and a one-finger draw / two-finger navigate model.
 
+const DOOR_LINK_THRESHOLD_UNITS = 3;
 const SNAP_RADIUS_PX = 22;
 const ENDPOINT_RADIUS_PX = 30;
 const FINISH_TAP_PX = 26;
@@ -64,9 +71,21 @@ export function Workspace() {
     [floorId],
   );
   const features = useMemo(() => featureQuery ?? [], [featureQuery]);
+  const connectionQuery = useLiveQuery(
+    () => (project ? connectionRepo.listByProject(project.id) : Promise.resolve([])),
+    [project?.id],
+  );
+  // Only links where both ends sit on this floor can render (PRD 18).
+  const floorConnections = useMemo(() => {
+    const conns = connectionQuery ?? [];
+    const ids = new Set(features.map((f) => f.id));
+    return conns.filter((c) => ids.has(c.fromFeatureId) && ids.has(c.toFeatureId));
+  }, [connectionQuery, features]);
 
   const tool = useToolsStore((s) => s.tool);
   const setTool = useToolsStore((s) => s.setTool);
+  const placeType = useToolsStore((s) => s.placeType);
+  const startPlacing = useToolsStore((s) => s.startPlacing);
   const snapping = useToolsStore((s) => s.snapping);
   const toggleSnapping = useToolsStore((s) => s.toggleSnapping);
   const angleLock = useToolsStore((s) => s.angleLock);
@@ -78,12 +97,20 @@ export function Workspace() {
   const showUndoToast = useUndoToastStore((s) => s.show);
 
   const [draft, setDraft] = useState<Point[]>([]);
+  // Snap result per draft corner: first/last drive junctions (PRD 18).
+  const [draftSnaps, setDraftSnaps] = useState<(ReturnType<typeof findSnap> | null)[]>([]);
   const [rawCursor, setRawCursor] = useState<Point | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isDesktop, setIsDesktop] = useState(false);
   const [finishOpen, setFinishOpen] = useState(false);
   const [inlineHint, setInlineHint] = useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [sheetFeatureId, setSheetFeatureId] = useState<string | null>(null);
+  // PRD 15: post-capture chip retags the most recent path.
+  const [lastPathId, setLastPathId] = useState<string | null>(null);
   const controlsRef = useRef<CanvasControls | null>(null);
+
+  const sheetFeature = features.find((f) => f.id === sheetFeatureId) ?? null;
 
   // Per-floor session reset using React's adjust-during-render pattern
   // (state that must not survive a floor change).
@@ -91,6 +118,7 @@ export function Workspace() {
   if (lastFloorId !== floorId) {
     setLastFloorId(floorId);
     setDraft([]);
+    setDraftSnaps([]);
     setSelectedId(null);
     setRawCursor(null);
   }
@@ -112,6 +140,9 @@ export function Workspace() {
   }, []);
 
   const tracing = tool === "trace-path";
+  const placing = tool === "add-place" && placeType !== null;
+  const placingPoint = placing && getPlaceType(placeType)?.capture === "point";
+  const placingPolygon = placing && getPlaceType(placeType)?.capture === "polygon";
   const selected = features.find((f) => f.id === selectedId) ?? null;
 
   // ---------------------------------------------------------- point pipeline
@@ -151,14 +182,14 @@ export function Workspace() {
 
   const computeCursor = useCallback(
     (raw: Point | null): { cursor: Point | null; snap: ReturnType<typeof findSnap> } => {
-      if (!raw || !tracing || draft.length === 0) {
+      if (!raw || !(tracing || placingPolygon) || draft.length === 0) {
         return { cursor: raw, snap: null };
       }
       const from = draft[draft.length - 1];
       const result = effectivePoint(raw, { from, angleLock, snapping });
       return { cursor: result.point, snap: result.snap };
     },
-    [draft, tracing, effectivePoint, angleLock, snapping],
+    [draft, tracing, placingPolygon, effectivePoint, angleLock, snapping],
   );
 
   const cursorState = computeCursor(rawCursor);
@@ -167,6 +198,24 @@ export function Workspace() {
 
   function handleTapWorld(world: Point) {
     setInlineHint(null);
+    setLastPathId(null);
+    if (placing && placingPoint) {
+      placePoint(world);
+      return;
+    }
+    if (placing && placingPolygon) {
+      const { point } = effectivePoint(world, {
+        from: draft.length > 0 ? draft[draft.length - 1] : undefined,
+        angleLock: false,
+        snapping,
+      });
+      // AC-04: corners must be distinct.
+      const last = draft[draft.length - 1];
+      if (last && dist(last, point) * scaleRef.current < 1) return;
+      setDraft((d) => [...d, point]);
+      setDraftSnaps((sn) => [...sn, null]);
+      return;
+    }
     if (tracing) {
       // Tap the first point again (or Done) to finish (PRD 15).
       if (draft.length >= 2) {
@@ -176,7 +225,7 @@ export function Workspace() {
           return;
         }
       }
-      const { point } = effectivePoint(world, {
+      const { point, snap: snapResult } = effectivePoint(world, {
         from: draft.length > 0 ? draft[draft.length - 1] : undefined,
         angleLock,
         snapping,
@@ -185,6 +234,7 @@ export function Workspace() {
       const last = draft[draft.length - 1];
       if (last && dist(last, point) * scaleRef.current < 1) return;
       setDraft((d) => [...d, point]);
+      setDraftSnaps((sn) => [...sn, snapResult]);
       return;
     }
     // Select tool: tap on empty space - selection clearing happens in canvas.
@@ -228,22 +278,204 @@ export function Workspace() {
     void runSave(async () => {
       await featureRepo.create(feature);
     });
-    pushFeatureHistory("Add path", feature);
     setDraft([]);
+    setDraftSnaps([]);
     setRawCursor(null);
+    setLastPathId(feature.id);
+    commitDraftWithConnections(feature, draftSnaps);
   }
 
-  function pushFeatureHistory(label: string, feature: Feature) {
+  // PRD 18: the path just saved connects where its ends snapped. Endpoint
+  // snaps record a connection; segment snaps split the target into two
+  // linked segments with a junction at the shared point.
+  function commitDraftWithConnections(
+    feature: Feature,
+    snaps: (ReturnType<typeof findSnap> | null)[],
+  ) {
+    const first = snaps[0] ?? null;
+    const last = snaps.length > 1 ? (snaps[snaps.length - 1] ?? null) : null;
+
+    void runSave(async () => {
+      const extraConnections: import("@/lib/domain/schema").Connection[] = [];
+      // rightId mutates when redo re-splits (a fresh segment id) so undo
+      // always removes the segment that currently exists.
+      const splits: {
+        targetId: string;
+        targetBefore: Feature["geometry"];
+        junction: Point;
+        rightId: string;
+      }[] = [];
+
+      for (const snap of [first, last]) {
+        if (!snap) continue;
+        if (snap.kind === "endpoint") {
+          if (snap.featureId === feature.id) continue;
+          extraConnections.push(
+            await connectionRepo.create({
+              projectId: feature.projectId,
+              fromFeatureId: feature.id,
+              toFeatureId: snap.featureId,
+              kind: "path",
+            }),
+          );
+        } else if (snap.kind === "segment") {
+          const target = await featureRepo.get(snap.featureId);
+          if (!target || target.geometry.type !== "LineString") continue;
+          const result = await featureRepo.splitPathAtPoint(snap.featureId, snap.point, feature.id);
+          if (result) {
+            splits.push({
+              targetId: target.id,
+              targetBefore: target.geometry,
+              junction: snap.point,
+              rightId: result.right.id,
+            });
+          }
+        }
+      }
+
+      if (!extraConnections.length && !splits.length) return;
+
+      history.push({
+        label: "Connect path",
+        undo: async () => {
+          // Removing the new path cascades every connection touching it;
+          // each split restores the target and drops its right segment.
+          await featureRepo.remove(feature.id);
+          for (const split of splits) {
+            await featureRepo.remove(split.rightId);
+            await featureRepo.update(split.targetId, { geometry: split.targetBefore });
+          }
+        },
+        redo: async () => {
+          await featureRepo.restore(feature);
+          for (const c of extraConnections) await connectionRepo.restore(c);
+          for (const split of splits) {
+            await featureRepo.update(split.targetId, { geometry: split.targetBefore });
+            const result = await featureRepo.splitPathAtPoint(
+              split.targetId,
+              split.junction,
+              feature.id,
+            );
+            if (result) split.rightId = result.right.id;
+          }
+        },
+      });
+    });
+  }
+
+  // PRD 16: a point place is one tap - it saves immediately, then the
+  // dismissible detail sheet offers enrichment.
+  function placePoint(raw: Point) {
+    if (!floorId || !floor || !project || !placeType) return;
+    const { point } = effectivePoint(raw, { angleLock: false, snapping });
+    const now = Date.now();
+    const feature: Feature = {
+      id: newId(),
+      projectId: project.id,
+      floorId,
+      type: "place",
+      subtype: placeType,
+      geometry: { type: "Point", coordinates: [point.x, point.y] },
+      access: "public",
+      status: "active",
+      confidence: "high",
+      createdAt: now,
+      updatedAt: now,
+    };
+    void runSave(async () => {
+      await featureRepo.create(feature);
+      const door = await maybeLinkDoor(feature);
+      pushFeatureHistory(`Add ${typeLabel(placeType)}`, feature, door ? [door] : []);
+    });
+    setSheetFeatureId(feature.id);
+    setTool("select");
+  }
+
+  // PRD 16: an area place saves on Done (>= 3 corners, AC-04) and opens the
+  // detail sheet; the tool returns to Select.
+  function commitPlaceDraft(points: Point[]) {
+    if (!floorId || !floor || !project || !placeType) return;
+    const distinct = points.filter((p, i) => i === 0 || dist(p, points[i - 1]) > 1e-6);
+    if (distinct.length < 3) {
+      setInlineHint("A shape needs at least 3 corners");
+      return;
+    }
+    const now = Date.now();
+    const feature: Feature = {
+      id: newId(),
+      projectId: project.id,
+      floorId,
+      type: "place",
+      subtype: placeType,
+      geometry: { type: "Polygon", coordinates: [distinct.map((p) => [p.x, p.y])] },
+      access: "public",
+      status: "active",
+      confidence: "high",
+      createdAt: now,
+      updatedAt: now,
+    };
+    void runSave(async () => {
+      await featureRepo.create(feature);
+    });
+    pushFeatureHistory(`Add ${typeLabel(placeType)}`, feature);
+    setDraft([]);
+    setRawCursor(null);
+    setSheetFeatureId(feature.id);
+    setTool("select");
+  }
+
+  // PRD 15: retag the most recent path; tapping anywhere else dismisses.
+  function retagLastPath(subtype: string) {
+    if (!lastPathId) return;
+    const feature = features.find((f) => f.id === lastPathId);
+    if (!feature || feature.subtype === subtype) return;
+    const before = feature.subtype;
+    void runSave(async () => {
+      await featureRepo.update(lastPathId, { subtype });
+    });
+    history.push({
+      label: "Tag path",
+      undo: async () => {
+        await featureRepo.update(lastPathId, { subtype: before });
+      },
+      redo: async () => {
+        await featureRepo.update(lastPathId, { subtype });
+      },
+    });
+  }
+
+  function pushFeatureHistory(
+    label: string,
+    feature: Feature,
+    extraConnections: import("@/lib/domain/schema").Connection[] = [],
+  ) {
     const entry: HistoryEntry = {
       label,
       undo: async () => {
+        // Cascade removes every connection that touches the feature,
+        // including any recorded here.
         await featureRepo.remove(feature.id);
       },
       redo: async () => {
         await featureRepo.restore(feature);
+        for (const c of extraConnections) await connectionRepo.restore(c);
       },
     };
     history.push(entry);
+  }
+
+  // PRD 18 doors: a place inside or adjacent to a path records the link
+  // automatically; the sheet confirms it and the canvas dashes it.
+  async function maybeLinkDoor(place: Feature) {
+    const paths = features.filter((f) => f.geometry.type === "LineString");
+    const nearest = nearestPathFeature(place, paths, DOOR_LINK_THRESHOLD_UNITS);
+    if (!nearest) return null;
+    return connectionRepo.create({
+      projectId: place.projectId,
+      fromFeatureId: place.id,
+      toFeatureId: nearest.featureId,
+      kind: "door",
+    });
   }
 
   function handleMoveVertex(featureId: string, vertexIndex: number, raw: Point) {
@@ -387,16 +619,17 @@ export function Workspace() {
     );
   }
 
-  const canFinish = draft.length >= 2;
+  const canFinish = draft.length >= (placingPolygon ? 3 : 2);
   const selectedLabel = selected ? (selected.name ?? "Unnamed") : null;
 
   return (
     <main className="fixed inset-0 flex flex-col bg-background" aria-live="polite">
       <MapCanvas
         features={features}
+        connections={floorConnections}
         floorScale={floor.scale}
-        captureActive={tracing && !isDesktop}
-        draft={tracing ? draft : []}
+        captureActive={(tracing || placingPolygon) && !isDesktop}
+        draft={tracing || placingPolygon ? draft : []}
         cursor={cursorState.cursor}
         snap={cursorState.snap}
         canFinishByTap={canFinish}
@@ -489,19 +722,53 @@ export function Workspace() {
         </Button>
       </div>
 
-      {/* Hint banner */}
-      {(tracing || inlineHint || saveStatus === "error") && (
+      {/* Hint banner / post-capture subtype chip (PRD 15) */}
+      {(tracing || placingPolygon || inlineHint || lastPathId || saveStatus === "error") && (
         <div className="pointer-events-none absolute inset-x-3 bottom-[86px] z-20 flex justify-center">
-          <div
-            role={saveStatus === "error" ? "alert" : "status"}
-            className="pointer-events-auto max-w-full rounded-lg bg-foreground/90 px-3 py-2 text-xs font-medium text-background shadow"
-          >
-            {saveStatus === "error"
-              ? "The last change could not be saved - check the indicator above."
-              : inlineHint
-                ? inlineHint
+          {saveStatus === "error" || inlineHint ? (
+            <div
+              role={saveStatus === "error" ? "alert" : "status"}
+              className="pointer-events-auto max-w-full rounded-lg bg-foreground/90 px-3 py-2 text-xs font-medium text-background shadow"
+            >
+              {saveStatus === "error"
+                ? "The last change could not be saved - check the indicator above."
+                : inlineHint}
+            </div>
+          ) : lastPathId ? (
+            <div
+              role="status"
+              className="pointer-events-auto flex max-w-full items-center gap-2 rounded-lg bg-foreground/90 px-3 py-1.5 text-background shadow"
+            >
+              <span className="text-xs font-medium">Tag:</span>
+              {PATH_SUBTYPES.map((st) => (
+                <button
+                  key={st.value}
+                  type="button"
+                  onClick={() => retagLastPath(st.value)}
+                  className="h-8 rounded-full bg-background/15 px-2.5 text-xs font-semibold text-background hover:bg-background/25"
+                >
+                  {st.label}
+                </button>
+              ))}
+              <button
+                type="button"
+                aria-label="Dismiss tag suggestions"
+                onClick={() => setLastPathId(null)}
+                className="grid size-8 place-items-center rounded-full text-background/80 hover:bg-background/15"
+              >
+                <X className="size-3.5" aria-hidden />
+              </button>
+            </div>
+          ) : (
+            <div
+              role="status"
+              className="pointer-events-auto max-w-full rounded-lg bg-foreground/90 px-3 py-2 text-xs font-medium text-background shadow"
+            >
+              {placingPolygon
+                ? "Trace the area boundary - tap each corner"
                 : "Tap to add points - tap the green dot or Done to finish"}
-          </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -510,7 +777,67 @@ export function Workspace() {
         className="absolute inset-x-0 bottom-0 z-20 border-t bg-background/95 px-2 pt-2 backdrop-blur"
         style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
       >
-        {tracing ? (
+        {placing && placingPoint ? (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="icon-lg"
+              className="h-12 w-12 shrink-0 rounded-lg"
+              aria-label="Cancel placing"
+              onClick={() => setTool("select")}
+            >
+              <X className="size-5" aria-hidden />
+            </Button>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold">{typeLabel(placeType ?? "")}</p>
+              <p className="truncate text-xs text-muted-foreground">
+                Tap the map to place it - saves now, details after
+              </p>
+            </div>
+          </div>
+        ) : placing && placingPolygon ? (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="icon-lg"
+              className="h-12 w-12 shrink-0 rounded-lg"
+              aria-label="Cancel placing"
+              onClick={() => {
+                setDraft([]);
+                setTool("select");
+              }}
+            >
+              <X className="size-5" aria-hidden />
+            </Button>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold">{typeLabel(placeType ?? "")}</p>
+              <p className="truncate text-xs text-muted-foreground">
+                Trace the area boundary - tap each corner
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="icon-lg"
+              className="h-12 w-12 shrink-0 rounded-lg"
+              aria-label="Undo last corner"
+              disabled={draft.length === 0}
+              onClick={() => {
+                setDraft((d) => d.slice(0, -1));
+                setDraftSnaps((sn) => sn.slice(0, -1));
+              }}
+            >
+              <Undo2 className="size-5" aria-hidden />
+            </Button>
+            <Button
+              className="h-12 shrink-0 rounded-lg px-5"
+              disabled={!canFinish}
+              onClick={() => commitPlaceDraft(draft)}
+            >
+              <Check className="size-5" aria-hidden />
+              Done
+            </Button>
+          </div>
+        ) : tracing ? (
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -539,7 +866,10 @@ export function Workspace() {
               className="h-12 w-12 shrink-0 rounded-lg"
               aria-label="Undo last corner"
               disabled={draft.length === 0}
-              onClick={() => setDraft((d) => d.slice(0, -1))}
+              onClick={() => {
+                setDraft((d) => d.slice(0, -1));
+                setDraftSnaps((sn) => sn.slice(0, -1));
+              }}
             >
               <Undo2 className="size-5" aria-hidden />
             </Button>
@@ -555,7 +885,7 @@ export function Workspace() {
               </div>
               <p className="truncate text-xs text-muted-foreground">
                 {selected.geometry.type === "Point"
-                  ? "Moving point places arrives in the next build"
+                  ? "Drag it to move - details via the pencil"
                   : "Drag corners - tap a dashed midpoint to add one - double-tap a corner to remove"}
               </p>
             </div>
@@ -563,8 +893,7 @@ export function Workspace() {
               variant="ghost"
               size="icon-lg"
               aria-label="Edit details"
-              disabled
-              title="Details arrive in the next build"
+              onClick={() => setSheetFeatureId(selected.id)}
             >
               <Pencil className="size-5" aria-hidden />
             </Button>
@@ -607,8 +936,7 @@ export function Workspace() {
               <Button
                 variant="outline"
                 className="h-14 flex-1 flex-col gap-0.5 rounded-lg text-xs font-semibold"
-                disabled
-                title="Add Place arrives in the next build"
+                onClick={() => setPickerOpen(true)}
               >
                 <Plus className="size-5" aria-hidden />
                 Add Place
@@ -635,6 +963,23 @@ export function Workspace() {
           </div>
         )}
       </div>
+
+      <TypePicker
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        onPick={(key) => {
+          startPlacing(key);
+          setDraft([]);
+          setLastPathId(null);
+        }}
+      />
+
+      <PlaceDetailSheet
+        feature={sheetFeature}
+        onOpenChange={(open) => {
+          if (!open) setSheetFeatureId(null);
+        }}
+      />
 
       <ConfirmDialog
         open={finishOpen}

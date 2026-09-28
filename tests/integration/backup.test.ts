@@ -154,11 +154,6 @@ describe("duplicate import (PRD 30: never merge-overwrite)", () => {
     expect((await getDbFeatures(project.id))[0].id).not.toBe((await getDbFeatures(copyId))[0].id);
   });
 });
-
-async function getDbFloors(projectId: string) {
-  const { getDb } = await import("@/lib/db/db");
-  return getDb().floors.where("projectId").equals(projectId).toArray();
-}
 async function getDbFeatures(projectId: string) {
   const { getDb } = await import("@/lib/db/db");
   return getDb().features.where("projectId").equals(projectId).toArray();
