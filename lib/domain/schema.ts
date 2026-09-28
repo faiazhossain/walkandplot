@@ -55,6 +55,15 @@ export const floorSchema = z.object({
     })
     .nullable()
     .default(null),
+  // PRD 22 reserved room: geographic anchor for the floor's local origin.
+  // Optional and unindexed, so no Dexie version bump is required (PRD 29):
+  // old rows and old backups simply omit it.
+  geoAnchor: z
+    .object({
+      lat: z.number().min(-90).max(90),
+      lng: z.number().min(-180).max(180),
+    })
+    .optional(),
   createdAt: z.number(),
   updatedAt: z.number(),
 });

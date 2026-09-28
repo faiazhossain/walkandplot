@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 
 // PRD 37 happy-path slice for Phase 2+3: create project -> create floor ->
@@ -184,4 +185,49 @@ test("Set Real Length calibrates the floor (PRD 14, AC-03)", async ({ page }) =>
   // The overview row reports the calibrated floor.
   await page.getByRole("button", { name: "Back to project" }).click();
   await expect(page.getByRole("link", { name: /Ground/ })).toContainText("calibrated");
+});
+
+test("Download Map File produces valid GeoJSON of the survey (PRD 22, AC-09)", async ({ page }) => {
+  await createProjectToWorkspace(page);
+  const canvas = page.locator(CANVAS);
+
+  // Plot a corridor, then export from the project menu.
+  await page.getByRole("button", { name: "Trace Path" }).click();
+  await canvas.click({ position: { x: 150, y: 350 } });
+  await canvas.click({ position: { x: 246, y: 350 } });
+  await page.getByRole("button", { name: "Done" }).click();
+  await page.getByRole("button", { name: "Back to project" }).click();
+
+  await page.getByRole("button", { name: "More project actions" }).click();
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download Map File" }).click();
+  const download = await downloadPromise;
+
+  expect(download.suggestedFilename()).toBe("E2E-Tower.geojson");
+  const geojson = JSON.parse(readFileSync((await download.path())!, "utf8"));
+  expect(geojson.type).toBe("FeatureCollection");
+  expect(geojson.properties.app).toBe("walk-and-plot");
+  expect(geojson.properties.coordinateSystem).toMatchObject({ type: "local", unit: "units" });
+  expect(geojson.features).toHaveLength(1);
+  expect(geojson.features[0].geometry.type).toBe("LineString");
+  expect(geojson.features[0].properties.subtype).toBe("corridor");
+});
+
+test("basemap toggle keeps plotting fully usable (offline-safe)", async ({ page }) => {
+  await createProjectToWorkspace(page);
+
+  await page.getByRole("button", { name: "Show base map" }).click();
+  await expect(page.getByRole("button", { name: "Hide base map" })).toBeVisible();
+  await expect(page.getByText("Base map on")).toBeVisible();
+
+  // PRD 32: the core loop never depends on the network - draw with the
+  // basemap layer on (tiles may or may not have loaded).
+  const canvas = page.locator(CANVAS);
+  await page.getByRole("button", { name: "Trace Path" }).click();
+  await canvas.click({ position: { x: 150, y: 350 } });
+  await canvas.click({ position: { x: 246, y: 350 } });
+  await page.getByRole("button", { name: "Done" }).click();
+
+  await page.getByRole("button", { name: "Back to project" }).click();
+  await expect(page.getByRole("link", { name: /Ground/ })).toContainText("1 item");
 });

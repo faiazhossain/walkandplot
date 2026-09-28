@@ -7,6 +7,7 @@ import {
   ChevronRight,
   CircleDashed,
   Ellipsis,
+  FileDown,
   GripVertical,
   Map as MapIcon,
   Pencil,
@@ -42,6 +43,8 @@ interface FloorListProps {
   onToggleStatus: (floor: Floor) => void;
   /** Persists the new order once a drag settles. */
   onReorder: (orderedIds: string[]) => void;
+  /** PRD 22: per-floor Download Map File. */
+  onExport: (floor: Floor) => void;
 }
 
 export function FloorList({
@@ -50,6 +53,7 @@ export function FloorList({
   onDelete,
   onToggleStatus,
   onReorder,
+  onExport,
 }: FloorListProps) {
   const [order, setOrder] = useState<string[] | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
@@ -129,6 +133,7 @@ export function FloorList({
           onRename={() => onRename(row.floor)}
           onDelete={() => onDelete(row.floor)}
           onToggleStatus={() => onToggleStatus(row.floor)}
+          onExport={() => onExport(row.floor)}
           onMoveUp={() => move(row.floor.id, -1)}
           onMoveDown={() => move(row.floor.id, 1)}
         />
@@ -149,6 +154,7 @@ function FloorRow({
   onRename,
   onDelete,
   onToggleStatus,
+  onExport,
   onMoveUp,
   onMoveDown,
 }: {
@@ -163,6 +169,7 @@ function FloorRow({
   onRename: () => void;
   onDelete: () => void;
   onToggleStatus: () => void;
+  onExport: () => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
 }) {

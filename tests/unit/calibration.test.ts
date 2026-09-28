@@ -6,11 +6,19 @@ import {
   stepsToMeters,
   unitLabel,
 } from "@/lib/domain/calibration";
+import {
+  localToLngLat,
+  lngLatToLocal,
+  scaleToZoom,
+  zoomToScale,
+} from "@/lib/domain/geo";
 import type { Feature } from "@/lib/domain/schema";
 
 // PRD 14: calibration math - step counting, pickable lines, rescale preview.
 
-function makeFeature(partial: Partial<Feature> & { id: string; geometry: Feature["geometry"] }): Feature {
+function makeFeature(
+  partial: Partial<Feature> & { id: string; geometry: Feature["geometry"] },
+): Feature {
   return {
     projectId: "p1",
     floorId: "f1",
@@ -25,7 +33,9 @@ function makeFeature(partial: Partial<Feature> & { id: string; geometry: Feature
   } as Feature;
 }
 
-const line = (pts: [number, number][]): {
+const line = (
+  pts: [number, number][],
+): {
   type: "LineString";
   coordinates: [number, number][];
 } => ({ type: "LineString", coordinates: pts });
@@ -105,5 +115,33 @@ describe("unitLabel (PRD 14 coordinate honesty)", () => {
     expect(unitLabel(null)).toBe("units");
     expect(unitLabel({ calibrated: false, metersPerUnit: 1 })).toBe("units");
     expect(unitLabel({ calibrated: true, metersPerUnit: 1 })).toBe("m");
+  });
+});
+
+describe("geo anchor math (basemap, PRD 22 anchors)", () => {
+  it("round-trips local meters to lng/lat and back", () => {
+    const anchor = { lat: 23.8103, lng: 90.4125 };
+    const local = { x: 30, y: 45 };
+    const ll = localToLngLat(anchor, local);
+    const back = lngLatToLocal(anchor, ll);
+    // Sub-millimeter agreement is plenty at floor scale.
+    expect(back.x).toBeCloseTo(local.x, 3);
+    expect(back.y).toBeCloseTo(local.y, 3);
+    // PRD 23: x is right/east (lng grows), y is down/south (lat shrinks).
+    expect(ll.lng).toBeGreaterThan(anchor.lng);
+    expect(ll.lat).toBeLessThan(anchor.lat);
+  });
+
+  it("converts scale to map zoom and back within tolerance", () => {
+    const anchor = { lat: 23.8103, lng: 90.4125 };
+    for (const scale of [0.5, 4, 48, 200]) {
+      const zoom = scaleToZoom(anchor, scale);
+      expect(zoomToScale(anchor, zoom)).toBeCloseTo(scale, 4);
+    }
+  });
+
+  it("keeps degenerate inputs safe", () => {
+    expect(scaleToZoom({ lat: 0, lng: 0 }, 0)).toBe(16);
+    expect(Number.isFinite(zoomToScale({ lat: 0, lng: 0 }, 30))).toBe(true);
   });
 });

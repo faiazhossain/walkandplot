@@ -9,6 +9,7 @@ import {
   Building2,
   CopyPlus,
   Ellipsis,
+  FileDown,
   Layers,
   Pencil,
   Plus,
@@ -34,6 +35,7 @@ import { floorRepo, projectRepo } from "@/lib/db/repositories";
 import { metaRepo, shouldRemindBackup } from "@/lib/db/meta-repo";
 import { exportProjectBackup } from "@/lib/backup/export";
 import { downloadJson } from "@/lib/backup/filename";
+import { downloadFloorGeoJSON, downloadProjectGeoJSON } from "@/lib/geojson/export-service";
 
 // PRD 9 Step 2 / PRD 26: project overview - floors, backup, delete. Reachable
 // at /projects/view?id=<projectId>. Deviation from PRD 26's
@@ -66,6 +68,8 @@ export function ProjectOverview() {
   const [renamingProject, setRenamingProject] = useState(false);
   const [deletingProject, setDeletingProject] = useState(false);
   const [addingFloor, setAddingFloor] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
   const [renamingFloor, setRenamingFloor] = useState<Floor | null>(null);
   const [deletingFloor, setDeletingFloor] = useState<Floor | null>(null);
 
@@ -108,6 +112,20 @@ export function ProjectOverview() {
   async function downloadBackup() {
     const backup = await exportProjectBackup(project.id);
     downloadJson(backup.filename, backup.json);
+  }
+
+  // PRD 36: large exports build async behind a busy state, no jank.
+  async function downloadMapFile(floorId?: string) {
+    setExporting(true);
+    try {
+      if (floorId) await downloadFloorGeoJSON(floorId);
+      else await downloadProjectGeoJSON(project.id);
+    } catch (err) {
+      console.error("GeoJSON export failed", err);
+      setExportError("The map file could not be built. Try again.");
+    } finally {
+      setExporting(false);
+    }
   }
 
   const remind = backupMeta && shouldRemindBackup(project, backupMeta.last, backupMeta.dismissed);
@@ -173,6 +191,7 @@ export function ProjectOverview() {
               floors={rows}
               onRename={setRenamingFloor}
               onDelete={setDeletingFloor}
+              onExport={(floor) => void downloadMapFile(floor.id)}
               onToggleStatus={(floor) =>
                 void floorRepo.setStatus(
                   floor.id,
@@ -214,6 +233,14 @@ export function ProjectOverview() {
               onClick={() => {
                 setMenuOpen(false);
                 setRenamingProject(true);
+              }}
+            />
+            <MenuAction
+              icon={FileDown}
+              label={exporting ? "Preparing..." : "Download Map File"}
+              onClick={() => {
+                setMenuOpen(false);
+                void downloadMapFile();
               }}
             />
             <MenuAction

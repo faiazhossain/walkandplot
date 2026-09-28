@@ -8,11 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { Feature, Floor } from "@/lib/domain/schema";
-import {
-  checkCalibrationInput,
-  pickableLines,
-  stepsToMeters,
-} from "@/lib/domain/calibration";
+import { checkCalibrationInput, pickableLines, stepsToMeters } from "@/lib/domain/calibration";
 import { formatLength } from "@/lib/domain/units";
 import { floorRepo } from "@/lib/db/repositories";
 import { runSave } from "@/lib/store/save-state";
@@ -23,9 +19,7 @@ import { settingsStore } from "@/lib/store/settings";
 // every measurement becomes real meters (AC-03). Never blocks mapping.
 
 export type CalibrateStage =
-  | { kind: "idle" }
-  | { kind: "sheet"; tracedUnits: number | null }
-  | { kind: "trace" };
+  { kind: "idle" } | { kind: "sheet"; tracedUnits: number | null } | { kind: "trace" };
 
 interface CalibrateSheetProps {
   open: boolean;
@@ -92,12 +86,10 @@ export function CalibrateSheet({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <SheetContent>
-        <DialogTitle className="font-heading text-base font-semibold">
-          Set Real Length
-        </DialogTitle>
+        <DialogTitle className="font-heading text-base font-semibold">Set Real Length</DialogTitle>
         <p className="text-xs text-muted-foreground">
-          Trace a wall you know, or pick an existing line. The whole floor
-          rescales so lengths become real meters.
+          Trace a wall you know, or pick an existing line. The whole floor rescales so lengths
+          become real meters.
         </p>
 
         <div className="flex flex-col gap-2">
@@ -131,9 +123,7 @@ export function CalibrateSheet({
                   }`}
                 >
                   <Route className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-                  <span className="min-w-0 flex-1 truncate">
-                    {line.name ?? "Untitled line"}
-                  </span>
+                  <span className="min-w-0 flex-1 truncate">{line.name ?? "Untitled line"}</span>
                   <span className="shrink-0 text-xs text-muted-foreground">
                     {formatLength(line.lengthUnits, floor.scale)}
                   </span>
@@ -162,8 +152,7 @@ export function CalibrateSheet({
               onClick={bumpStep}
               aria-label="Count one step"
             >
-              <Footprints className="size-4" aria-hidden />
-              + 1 step
+              <Footprints className="size-4" aria-hidden />+ 1 step
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">

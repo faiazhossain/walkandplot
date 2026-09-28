@@ -14,6 +14,15 @@ import {
 } from "@/components/canvas/canvas-layers";
 import { TracePreview } from "@/components/canvas/trace-preview";
 import { ConnectionsLayer } from "@/components/canvas/connections-layer";
+import { useBasemap } from "@/components/canvas/basemap";
+import {
+  DEFAULT_ANCHOR,
+  localToLngLat,
+  lngLatToLocal,
+  scaleToZoom,
+  zoomToScale,
+  type GeoAnchor,
+} from "@/lib/domain/geo";
 import type { Point } from "@/lib/domain/geometry";
 import type { SnapResult } from "@/lib/domain/snap";
 import type { Feature } from "@/lib/domain/schema";
@@ -34,12 +43,16 @@ export interface CanvasControls {
   zoomIn: () => void;
   zoomOut: () => void;
   fit: () => void;
+  /** Basemap center, for the align-origin action (null when basemap off). */
+  getMapCenter: () => { lng: number; lat: number } | null;
 }
 
 export interface MapCanvasProps {
   features: Feature[];
   connections: import("@/lib/domain/schema").Connection[];
   floorScale: FloorScale;
+  /** Optional reference basemap under the canvas (local origin -> anchor). */
+  basemapAnchor: GeoAnchor | null;
   /** Capture tool active: one finger taps draw instead of panning. */
   captureActive: boolean;
   draft: Point[];
@@ -71,6 +84,7 @@ export function MapCanvas({
   features,
   connections,
   floorScale,
+  basemapAnchor,
   captureActive,
   draft,
   cursor,
@@ -103,6 +117,47 @@ export function MapCanvas({
 
   const theme = useCanvasTheme();
   const featuresById = useMemo(() => new Map(features.map((f) => [f.id, f])), [features]);
+
+  // Basemap sync: canvas -> map on viewport change; map -> canvas when the
+  // user moves the map. Echoes of our own pushes are recognized by value.
+  const basemapDivRef = useRef<HTMLDivElement>(null);
+  const anchor = basemapAnchor ?? DEFAULT_ANCHOR;
+  const basemapRef = useBasemap(basemapDivRef, basemapAnchor !== null, anchor, () => {
+    if (!basemapAnchor) return;
+    const bridge = basemapRef.current;
+    const center = bridge?.getCenter();
+    const zoom = bridge?.getZoom();
+    if (!center || zoom === undefined) return;
+    const pushed = lastPushed.current;
+    if (
+      pushed &&
+      Math.abs(pushed.lng - center.lng) < 1e-7 &&
+      Math.abs(pushed.lat - center.lat) < 1e-7 &&
+      Math.abs(pushed.zoom - zoom) < 1e-4
+    ) {
+      return; // our own echo
+    }
+    const local = lngLatToLocal(basemapAnchor, center);
+    const scale = zoomToScale(basemapAnchor, zoom);
+    setViewport((v) => ({
+      scale,
+      x: size.width / 2 - local.x * scale,
+      y: size.height / 2 - local.y * scale,
+    }));
+  });
+  const lastPushed = useRef<{ lng: number; lat: number; zoom: number } | null>(null);
+
+  useEffect(() => {
+    if (!basemapAnchor) return;
+    const bridge = basemapRef.current;
+    if (!bridge) return;
+    const center = screenToWorld(viewport, { x: size.width / 2, y: size.height / 2 });
+    const ll = localToLngLat(basemapAnchor, center);
+    const zoom = scaleToZoom(basemapAnchor, viewport.scale);
+    lastPushed.current = { lng: ll.lng, lat: ll.lat, zoom };
+    bridge.setView(ll.lng, ll.lat, zoom);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewport, basemapAnchor, size.width, size.height, basemapRef.current !== null]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -152,6 +207,7 @@ export function MapCanvas({
         if (st) zoomAt(st.width() / 2, st.height() / 2, 0.8);
       },
       fit,
+      getMapCenter: () => (basemapAnchor ? (basemapRef.current?.getCenter() ?? null) : null),
     };
     return () => {
       controlsRef.current = null;
@@ -286,6 +342,13 @@ export function MapCanvas({
 
   return (
     <div ref={containerRef} className="absolute inset-0" style={{ touchAction: "none" }}>
+      <div
+        ref={basemapDivRef}
+        aria-hidden
+        className="absolute inset-0 z-0 bg-muted"
+        style={{ display: basemapAnchor ? "block" : "none" }}
+      />
+      <div className="relative z-10 h-full w-full">
       <Stage
         ref={stageRef}
         width={size.width}
@@ -300,9 +363,11 @@ export function MapCanvas({
         onPointerCancel={handlePointerUp}
         onWheel={handleWheel}
       >
-        <Layer listening={false}>
-          <GridLayer viewport={viewport} width={size.width} height={size.height} theme={theme} />
-        </Layer>
+        {!basemapAnchor && (
+          <Layer listening={false}>
+            <GridLayer viewport={viewport} width={size.width} height={size.height} theme={theme} />
+          </Layer>
+        )}
         <Layer listening={false}>
           <ConnectionsLayer
             connections={connections}
@@ -338,6 +403,7 @@ export function MapCanvas({
           )}
         </Layer>
       </Stage>
+      </div>
     </div>
   );
 }

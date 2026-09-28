@@ -210,6 +210,17 @@ export const floorRepo = {
     await touchProject(floor.projectId);
   },
 
+  // PRD 22 anchor: where the floor's local origin sits on Earth (basemap).
+  async setGeoAnchor(id: string, anchor: { lat: number; lng: number } | undefined): Promise<void> {
+    const db = getDb();
+    const floor = await db.floors.get(id);
+    if (!floor) return;
+    await db.transaction("rw", db.floors, async () => {
+      await db.floors.put(parseOrThrow(floorSchema, { ...floor, geoAnchor: anchor, updatedAt: Date.now() }));
+    });
+    await touchProject(floor.projectId);
+  },
+
   async rename(id: string, displayName: string): Promise<void> {
     const db = getDb();
     const floor = await db.floors.get(id);

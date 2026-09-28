@@ -11,6 +11,7 @@ import {
   X,
   Magnet,
   Map as MapIcon,
+  Crosshair,
   Pencil,
   Plus,
   Redo2,
@@ -25,12 +26,14 @@ import { MapCanvas, type CanvasControls } from "@/components/canvas/map-canvas";
 import { TypePicker } from "@/components/capture/type-picker";
 import { PlaceDetailSheet } from "@/components/capture/place-detail-sheet";
 import { CalibrateSheet, type CalibrateStage } from "@/components/capture/calibrate-sheet";
+import { DEFAULT_ANCHOR, type GeoAnchor } from "@/lib/domain/geo";
 import { getPlaceType, PATH_SUBTYPES, typeLabel } from "@/lib/config/place-types";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { SaveIndicator } from "@/components/common/save-indicator";
 import { EmptyState } from "@/components/common/empty-state";
 import { featureRepo, floorRepo, projectRepo } from "@/lib/db/repositories";
+import { metaRepo } from "@/lib/db/meta-repo";
 import { connectionRepo } from "@/lib/db/connection-repo";
 import { nearestPathFeature } from "@/lib/domain/connections";
 import { newId } from "@/lib/db/id";
@@ -114,6 +117,8 @@ export function Workspace() {
   const [calibStage, setCalibStage] = useState<CalibrateStage>({ kind: "idle" });
   const [calibPoints, setCalibPoints] = useState<Point[]>([]);
   const [calTipDismissed, setCalTipDismissed] = useState(false);
+  // Optional Barikoi basemap under the canvas (per-floor toggle in meta).
+  const [basemapOn, setBasemapOn] = useState(false);
   const controlsRef = useRef<CanvasControls | null>(null);
 
   const sheetFeature = features.find((f) => f.id === sheetFeatureId) ?? null;
@@ -134,6 +139,7 @@ export function Workspace() {
     } catch {
       setCalTipDismissed(false);
     }
+    void metaRepo.get(`basemap:${floorId}`).then((v) => setBasemapOn(v === true));
   }
 
   useEffect(() => {
@@ -644,6 +650,7 @@ export function Workspace() {
   }
 
   const canFinish = draft.length >= (placingPolygon ? 3 : 2);
+  const basemapAnchor: GeoAnchor | null = basemapOn ? floor.geoAnchor ?? DEFAULT_ANCHOR : null;
   const selectedLabel = selected ? (selected.name ?? "Unnamed") : null;
 
   return (
@@ -651,6 +658,7 @@ export function Workspace() {
       <MapCanvas
         features={features}
         connections={floorConnections}
+        basemapAnchor={basemapAnchor}
         floorScale={floor.scale}
         captureActive={(tracing || placingPolygon || calibrating) && !isDesktop}
         draft={tracing || placingPolygon || calibrating ? draft : []}
@@ -727,13 +735,50 @@ export function Workspace() {
         </div>
       </div>
 
-      {/* Floating zoom controls */}
+      {/* Floating zoom + basemap controls */}
       <div className="absolute top-20 right-2 z-20 flex flex-col gap-2">
+        <Button
+          variant={basemapOn ? "default" : "outline"}
+          size="icon-lg"
+          aria-label={basemapOn ? "Hide base map" : "Show base map"}
+          aria-pressed={basemapOn}
+          className="size-12 rounded-full bg-background/90 shadow"
+          onClick={() => {
+            const next = !basemapOn;
+            setBasemapOn(next);
+            void metaRepo.set(`basemap:${floorId}`, next);
+            if (next && !floor.geoAnchor) {
+              // First enable: seed a sensible anchor; Align pins the origin.
+              void floorRepo.setGeoAnchor(floor.id, DEFAULT_ANCHOR);
+              setInlineHint("Base map on - pan the map, then tap Align to pin your floor's origin.");
+            }
+          }}
+        >
+          <MapIcon className="size-5" aria-hidden />
+        </Button>
+        {basemapOn && (
+          <Button
+            variant="outline"
+            size="icon-lg"
+            aria-label="Align floor origin to map center"
+            className="size-12 rounded-full bg-background/90 shadow"
+            onClick={() => {
+              const center = controlsRef.current?.getMapCenter();
+              if (!center) return;
+              void runSave(async () => {
+                await floorRepo.setGeoAnchor(floor.id, { lat: center.lat, lng: center.lng });
+              });
+              setInlineHint("Floor origin pinned to the map center.");
+            }}
+          >
+            <Crosshair className="size-5" aria-hidden />
+          </Button>
+        )}
         <Button
           variant="outline"
           size="icon-lg"
           aria-label="Zoom in"
-          className="rounded-full bg-background/90 shadow"
+          className="size-12 rounded-full bg-background/90 shadow"
           onClick={() => controlsRef.current?.zoomIn()}
         >
           <ZoomIn className="size-5" aria-hidden />
@@ -742,7 +787,7 @@ export function Workspace() {
           variant="outline"
           size="icon-lg"
           aria-label="Zoom out"
-          className="rounded-full bg-background/90 shadow"
+          className="size-12 rounded-full bg-background/90 shadow"
           onClick={() => controlsRef.current?.zoomOut()}
         >
           <ZoomOut className="size-5" aria-hidden />
@@ -751,7 +796,7 @@ export function Workspace() {
           variant="outline"
           size="icon-lg"
           aria-label="Fit map"
-          className="rounded-full bg-background/90 shadow"
+          className="size-12 rounded-full bg-background/90 shadow"
           onClick={() => controlsRef.current?.fit()}
         >
           <Maximize className="size-5" aria-hidden />
