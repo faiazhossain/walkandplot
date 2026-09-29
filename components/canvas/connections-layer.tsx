@@ -21,8 +21,7 @@ export function ConnectionsLayer({
   viewport: Viewport;
   theme: CanvasTheme;
 }) {
-  const s = viewport.scale;
-  const px = 1 / s;
+  const px = 1 / viewport.scale;
   const links: { a: { x: number; y: number }; b: { x: number; y: number } }[] = [];
 
   for (const conn of connections) {
@@ -45,7 +44,7 @@ export function ConnectionsLayer({
       {links.map((l, i) => (
         <Line
           key={i}
-          points={[l.a.x * s, l.a.y * s, l.b.x * s, l.b.y * s]}
+          points={[l.a.x, l.a.y, l.b.x, l.b.y]}
           stroke={theme.gridMajor}
           strokeWidth={1.5 * px}
           dash={[4 * px, 4 * px]}

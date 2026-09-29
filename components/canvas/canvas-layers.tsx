@@ -116,12 +116,14 @@ export function GridLayer({
   const startY = Math.floor(screenToWorld(viewport, { x: 0, y: 0 }).y / step) * step;
   const endY = screenToWorld(viewport, { x: 0, y: height }).y;
 
+  // Lines are drawn in floor coordinates; the Stage transform turns them
+  // into screen pixels, so stroke widths divide by the scale to stay
+  // screen-constant.
+  const px = 1 / viewport.scale;
   const verticals: number[] = [];
-  for (let wx = startX; wx <= endX; wx += step)
-    verticals.push(worldToScreen(viewport, { x: wx, y: 0 }).x);
+  for (let wx = startX; wx <= endX; wx += step) verticals.push(wx);
   const horizontals: number[] = [];
-  for (let wy = startY; wy <= endY; wy += step)
-    horizontals.push(worldToScreen(viewport, { x: 0, y: wy }).y);
+  for (let wy = startY; wy <= endY; wy += step) horizontals.push(wy);
 
   // Bail out if zooming out would draw thousands of lines.
   if (verticals.length + horizontals.length > 400) return null;
@@ -132,26 +134,32 @@ export function GridLayer({
 
   return (
     <Group listening={false}>
-      {verticals.map((sx, i) => (
-        <Line
-          key={`v${i}`}
-          points={[sx, 0, sx, height]}
-          stroke={(firstV + i) % majorEvery === 0 ? theme.gridMajor : theme.grid}
-          strokeWidth={(firstV + i) % majorEvery === 0 ? 1.5 : 0.75}
-          opacity={(firstV + i) % majorEvery === 0 ? 0.7 : 0.4}
-          listening={false}
-        />
-      ))}
-      {horizontals.map((sy, i) => (
-        <Line
-          key={`h${i}`}
-          points={[0, sy, width, sy]}
-          stroke={(firstH + i) % majorEvery === 0 ? theme.gridMajor : theme.grid}
-          strokeWidth={(firstH + i) % majorEvery === 0 ? 1.5 : 0.75}
-          opacity={(firstH + i) % majorEvery === 0 ? 0.7 : 0.4}
-          listening={false}
-        />
-      ))}
+      {verticals.map((wx, i) => {
+        const major = (firstV + i) % majorEvery === 0;
+        return (
+          <Line
+            key={`v${i}`}
+            points={[wx, startY, wx, endY]}
+            stroke={major ? theme.gridMajor : theme.grid}
+            strokeWidth={(major ? 1.5 : 0.75) * px}
+            opacity={major ? 0.7 : 0.4}
+            listening={false}
+          />
+        );
+      })}
+      {horizontals.map((wy, i) => {
+        const major = (firstH + i) % majorEvery === 0;
+        return (
+          <Line
+            key={`h${i}`}
+            points={[startX, wy, endX, wy]}
+            stroke={major ? theme.gridMajor : theme.grid}
+            strokeWidth={(major ? 1.5 : 0.75) * px}
+            opacity={major ? 0.7 : 0.4}
+            listening={false}
+          />
+        );
+      })}
     </Group>
   );
 }
@@ -189,17 +197,14 @@ export function FeaturesLayer({
   onRemoveVertex,
 }: FeaturesLayerProps) {
   const s = viewport.scale;
-  // Stroke widths are screen-constant: the stage scale multiplies whatever we
-  // draw, so divide it out.
+  // Geometry is drawn in floor coordinates; the Stage transform maps it to
+  // screen. Stroke widths divide by the scale to stay screen-constant.
   const px = 1 / s;
   return (
     <Group>
       {features.map((feature) => {
         const vs = featureVertices(feature);
-        const flat = vs.flatMap((p) => {
-          const sp = worldToScreen(viewport, p);
-          return [sp.x, sp.y];
-        });
+        const flat = vs.flatMap((p) => [p.x, p.y]);
         const selected = feature.id === selectedId;
         const closed = feature.geometry.type === "Polygon";
 
@@ -241,11 +246,9 @@ export function FeaturesLayer({
                   onSelect(feature.id);
                 }}
                 onDragEnd={(e) => {
-                  onMoveVertex(
-                    feature.id,
-                    0,
-                    screenToWorld(viewport, { x: e.target.x(), y: e.target.y() }),
-                  );
+                  // Drag reports parent coordinates, which are floor
+                  // coordinates now - no inverse transform needed.
+                  onMoveVertex(feature.id, 0, { x: e.target.x(), y: e.target.y() });
                 }}
               />
             )}
@@ -288,65 +291,53 @@ function HandleGroup({
   onRemoveVertex: (featureId: string, vertexIndex: number) => void;
 }) {
   const s = viewport.scale;
+  const px = 1 / s;
   const handleR = 9 / s;
 
   return (
     <Group>
-      {vertices.map((p, i) => {
-        const sp = worldToScreen(viewport, p);
-        return (
-          <Circle
-            key={`c${i}`}
-            name="handle"
-            x={sp.x}
-            y={sp.y}
-            radius={handleR}
-            fill={theme.handleFill}
-            stroke={theme.pathSelected}
-            strokeWidth={2.5}
-            draggable
-            onDragEnd={(e) => {
-              onMoveVertex(
-                featureId,
-                i,
-                screenToWorld(viewport, { x: e.target.x(), y: e.target.y() }),
-              );
-            }}
-            onDblClick={() => onRemoveVertex(featureId, i)}
-            onDblTap={() => onRemoveVertex(featureId, i)}
-          />
-        );
-      })}
+      {vertices.map((p, i) => (
+        <Circle
+          key={`c${i}`}
+          name="handle"
+          x={p.x}
+          y={p.y}
+          radius={handleR}
+          fill={theme.handleFill}
+          stroke={theme.pathSelected}
+          strokeWidth={2.5 * px}
+          draggable
+          onDragEnd={(e) => {
+            // Parent coordinates are floor coordinates; store as-is.
+            onMoveVertex(featureId, i, { x: e.target.x(), y: e.target.y() });
+          }}
+          onDblClick={() => onRemoveVertex(featureId, i)}
+          onDblTap={() => onRemoveVertex(featureId, i)}
+        />
+      ))}
       {(closed ? vertices.length : vertices.length - 1) > 0 &&
         Array.from({ length: closed ? vertices.length : vertices.length - 1 }, (_, i) => {
-          const a = worldToScreen(viewport, vertices[i]);
-          const b = worldToScreen(viewport, vertices[(i + 1) % vertices.length]);
+          const a = vertices[i];
+          const b = vertices[(i + 1) % vertices.length];
+          const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
           return (
             <Circle
               key={`m${i}`}
               name="handle"
-              x={(a.x + b.x) / 2}
-              y={(a.y + b.y) / 2}
+              x={mid.x}
+              y={mid.y}
               radius={handleR * 0.62}
               fill={theme.handleFill}
               stroke={theme.pathSelected}
-              strokeWidth={1.5 / s}
-              dash={[3 / s, 3 / s]}
+              strokeWidth={1.5 * px}
+              dash={[3 * px, 3 * px]}
               onTap={(e) => {
                 e.cancelBubble = true;
-                onAddVertex(
-                  featureId,
-                  i,
-                  screenToWorld(viewport, { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }),
-                );
+                onAddVertex(featureId, i, mid);
               }}
               onClick={(e) => {
                 e.cancelBubble = true;
-                onAddVertex(
-                  featureId,
-                  i,
-                  screenToWorld(viewport, { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }),
-                );
+                onAddVertex(featureId, i, mid);
               }}
             />
           );
